@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+# Cấu hình chạy thực tế (tạo tự động khi chạy). Dùng config.example.json làm mẫu.
+config.json
+*.log
+.DS_Store
