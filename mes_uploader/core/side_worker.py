@@ -265,11 +265,13 @@ class SideWorker:
             self.cfg.api.url, payload,
             timeout=self.cfg.api.timeout, retries=self.cfg.api.retries,
             verify_ssl=self.cfg.api.verify_ssl,
+            use_proxy=self.cfg.api.use_proxy, proxy=self.cfg.api.proxy,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
             self._emit("log", text="  [OK] MES nhận OK (HTTP %s)" % code)
         else:
-            self._emit("log", text="  [FAIL] MES THẤT BẠI: %s" % text)
+            self._emit("log", text="  [FAIL] MES THẤT BẠI: %s"
+                       % mes_api.short_error(code, text))
         self._emit("result", sn=sn, result=payload["result"], ok=ok)
 
         with self._lock:

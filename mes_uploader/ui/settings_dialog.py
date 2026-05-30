@@ -119,6 +119,10 @@ class SettingsDialog(QDialog):
         self.cbo_fmt = QComboBox()
         self.cbo_fmt.addItems(["values_only", "full_row", "structured"])
         self.cbo_fmt.setCurrentText(self.cfg.api.data_format)
+        self.chk_proxy = QCheckBox("Đi qua proxy hệ thống")
+        self.chk_proxy.setChecked(self.cfg.api.use_proxy)
+        self.txt_proxy = QLineEdit(self.cfg.api.proxy)
+        self.txt_proxy.setPlaceholderText("vd http://10.0.0.1:8080 (để trống = proxy hệ thống)")
         form.addRow("URL API:", self.txt_url)
         form.addRow("Timeout:", self.spn_api_to)
         form.addRow("Số lần retry:", self.spn_retries)
@@ -126,6 +130,10 @@ class SettingsDialog(QDialog):
         form.addRow("Định dạng trường data:", self.cbo_fmt)
         form.addRow(QLabel("values_only = chỉ Data01..N | full_row = cả dòng | "
                            "structured = key:value"))
+        form.addRow(self.chk_proxy)
+        form.addRow("Proxy thủ công:", self.txt_proxy)
+        form.addRow(QLabel("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
+                           "mạng và phải qua proxy công ty."))
         return w
 
     # ------------------------------------------------------------------ #
@@ -218,6 +226,8 @@ class SettingsDialog(QDialog):
         c.api.retries = self.spn_retries.value()
         c.api.verify_ssl = self.chk_verify.isChecked()
         c.api.data_format = self.cbo_fmt.currentText()
+        c.api.use_proxy = self.chk_proxy.isChecked()
+        c.api.proxy = self.txt_proxy.text().strip()
 
         for key in ("left", "right"):
             ws = getattr(self, "_w_%s" % key)

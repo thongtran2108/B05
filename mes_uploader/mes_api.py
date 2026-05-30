@@ -57,20 +57,49 @@ def build_payload(sn, readings, data_format="values_only"):
 # ---------------------------------------------------------------------- #
 #  Gửi POST (có retry khi lỗi mạng)                                       #
 # ---------------------------------------------------------------------- #
+def short_error(code, text):
+    """Rút gọn nội dung lỗi để hiện trong nhật ký (tránh đổ cả trang HTML)."""
+    t = (text or "").strip()
+    low = t.lower()
+    if ("<html" in low or "<!doctype" in low or "squid" in low
+            or "err_access_denied" in low or "proxy" in low):
+        return ("máy chủ/proxy chặn request (HTTP %s). Kiểm tra URL MES và "
+                "BỎ chọn 'Đi qua proxy hệ thống' trong Setting > API nếu MES "
+                "là máy chủ nội bộ." % code)
+    if len(t) > 200:
+        t = t[:200] + "…"
+    if code:
+        return "HTTP %s: %s" % (code, t)
+    return t
+
+
 def post_payload(url, payload, timeout=5.0, retries=3, verify_ssl=True,
-                 logger=None):
-    """Trả về (ok: bool, status_code, text). Retry kiểu lùi dần 2,4,8s."""
+                 use_proxy=False, proxy="", logger=None):
+    """Trả về (ok: bool, status_code, text). Retry kiểu lùi dần 2,4,8s.
+
+    use_proxy=False: bỏ qua proxy hệ thống (trust_env=False) — phù hợp MES nội bộ.
+    use_proxy=True : dùng 'proxy' nếu có nhập, ngược lại dùng proxy hệ thống.
+    """
     if requests is None:
         msg = "Chua cai thu vien 'requests'"
         if logger:
             logger(msg)
         return False, None, msg
 
+    session = requests.Session()
+    if not use_proxy:
+        session.trust_env = False        # bỏ qua HTTP_PROXY/HTTPS_PROXY của hệ thống
+        proxies = {"http": None, "https": None}
+    elif proxy:
+        proxies = {"http": proxy, "https": proxy}
+    else:
+        proxies = None                   # để requests tự lấy proxy hệ thống
+
     last_err = None
     for attempt in range(1, max(1, retries) + 1):
         try:
-            resp = requests.post(url, json=payload, timeout=timeout,
-                                 verify=verify_ssl)
+            resp = session.post(url, json=payload, timeout=timeout,
+                                verify=verify_ssl, proxies=proxies)
             ok = 200 <= resp.status_code < 300
             if logger:
                 logger("POST #%d -> HTTP %d" % (attempt, resp.status_code))

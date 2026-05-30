@@ -66,6 +66,11 @@ class ApiConfig:
     verify_ssl: bool = True
     # cách dựng trường "data": values_only | full_row | structured
     data_format: str = "values_only"
+    # Proxy: MES nội bộ thường KHÔNG nên đi qua proxy công ty.
+    #   use_proxy = False -> bỏ qua proxy hệ thống (mặc định)
+    #   use_proxy = True  -> dùng proxy hệ thống, hoặc 'proxy' nếu có nhập
+    use_proxy: bool = False
+    proxy: str = ""          # vd "http://10.0.0.1:8080" (chỉ khi use_proxy=True)
 
 
 # ---------------------------------------------------------------------- #

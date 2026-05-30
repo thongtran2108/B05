@@ -12,7 +12,9 @@
     "timeout": 5.0,
     "retries": 3,
     "verify_ssl": true,
-    "data_format": "values_only"
+    "data_format": "values_only",
+    "use_proxy": false,
+    "proxy": ""
   },
   "paths": {
     "base_dir": "sample_data",
