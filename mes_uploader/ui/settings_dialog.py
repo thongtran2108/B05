@@ -14,11 +14,18 @@ import copy
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
     QFileDialog, QFormLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-    QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QTabWidget,
-    QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem,
+    QTabWidget, QVBoxLayout, QWidget,
 )
 
 from ..config import AppConfig, MaterialConfig
+
+
+def _section(title):
+    """Nhãn tiêu đề nhóm trong form Setting."""
+    lbl = QLabel(title)
+    lbl.setStyleSheet("color:#9fb4d8; font-weight:700; margin-top:6px;")
+    return lbl
 
 
 class SettingsDialog(QDialog):
@@ -128,18 +135,45 @@ class SettingsDialog(QDialog):
         self.chk_proxy.setChecked(self.cfg.api.use_proxy)
         self.txt_proxy = QLineEdit(self.cfg.api.proxy)
         self.txt_proxy.setPlaceholderText("vd http://10.0.0.1:8080 (để trống = proxy hệ thống)")
-        form.addRow("URL API:", self.txt_url)
+
+        # --- POST: upload kết quả ---
+        form.addRow(_section("POST — Upload kết quả"))
+        form.addRow("URL POST:", self.txt_url)
         form.addRow("Timeout:", self.spn_api_to)
         form.addRow("Số lần retry:", self.spn_retries)
         form.addRow(self.chk_verify)
         form.addRow("Định dạng trường data:", self.cbo_fmt)
         form.addRow(QLabel("values_only = chỉ Data01..N | full_row = cả dòng | "
                            "structured = key:value"))
+        self.txt_post_ok = QLineEdit(self.cfg.api.post_ok_contains)
+        self.txt_post_ok.setPlaceholderText("vd 200 (để trống = chỉ cần HTTP 2xx)")
+        form.addRow("POST OK khi body chứa:", self.txt_post_ok)
+
+        # --- GET: kiểm tra SN trước khi chạy ---
+        form.addRow(_section("GET — Kiểm tra SN trước khi chạy"))
+        self.chk_check = QCheckBox("Bật kiểm tra SN bằng GET")
+        self.chk_check.setChecked(self.cfg.api.check_enabled)
+        self.txt_check_pre = QLineEdit(self.cfg.api.check_url_prefix)
+        self.txt_check_pre.setPlaceholderText("vd http://mes/api/check?sn=")
+        self.txt_check_suf = QLineEdit(self.cfg.api.check_url_suffix)
+        self.txt_check_suf.setPlaceholderText("vd &station=OP10 (có thể để trống)")
+        self.txt_check_ok = QLineEdit(self.cfg.api.check_ok_contains)
+        self.txt_check_ok.setPlaceholderText("vd 0 — body chứa chuỗi này thì SN hợp lệ")
+        form.addRow(self.chk_check)
+        form.addRow("URL GET (tiền tố):", self.txt_check_pre)
+        form.addRow("URL GET (hậu tố):", self.txt_check_suf)
+        form.addRow("SN hợp lệ khi body chứa:", self.txt_check_ok)
+        form.addRow(QLabel("GET tới: <tiền tố> + SN + <hậu tố>. SN sai -> CHẶN, "
+                           "chờ quét mã khác (không tải lên)."))
+
+        # --- Proxy ---
+        form.addRow(_section("Proxy"))
         form.addRow(self.chk_proxy)
         form.addRow("Proxy thủ công:", self.txt_proxy)
         form.addRow(QLabel("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
                            "mạng và phải qua proxy công ty."))
-        return w
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
+        return scroll
 
     # ------------------------------------------------------------------ #
     #  Tab Bên trái / phải                                                #
@@ -234,6 +268,11 @@ class SettingsDialog(QDialog):
         c.api.data_format = self.cbo_fmt.currentText()
         c.api.use_proxy = self.chk_proxy.isChecked()
         c.api.proxy = self.txt_proxy.text().strip()
+        c.api.post_ok_contains = self.txt_post_ok.text().strip()
+        c.api.check_enabled = self.chk_check.isChecked()
+        c.api.check_url_prefix = self.txt_check_pre.text().strip()
+        c.api.check_url_suffix = self.txt_check_suf.text().strip()
+        c.api.check_ok_contains = self.txt_check_ok.text().strip()
 
         for key in ("left", "right"):
             ws = getattr(self, "_w_%s" % key)

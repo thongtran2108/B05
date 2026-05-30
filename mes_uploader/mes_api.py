@@ -73,19 +73,8 @@ def short_error(code, text):
     return t
 
 
-def post_payload(url, payload, timeout=5.0, retries=3, verify_ssl=True,
-                 use_proxy=False, proxy="", logger=None):
-    """Trả về (ok: bool, status_code, text). Retry kiểu lùi dần 2,4,8s.
-
-    use_proxy=False: bỏ qua proxy hệ thống (trust_env=False) — phù hợp MES nội bộ.
-    use_proxy=True : dùng 'proxy' nếu có nhập, ngược lại dùng proxy hệ thống.
-    """
-    if requests is None:
-        msg = "Chua cai thu vien 'requests'"
-        if logger:
-            logger(msg)
-        return False, None, msg
-
+def _make_session(use_proxy, proxy):
+    """Tạo Session + cấu hình proxy (mặc định bỏ qua proxy hệ thống)."""
     session = requests.Session()
     if not use_proxy:
         session.trust_env = False        # bỏ qua HTTP_PROXY/HTTPS_PROXY của hệ thống
@@ -94,20 +83,78 @@ def post_payload(url, payload, timeout=5.0, retries=3, verify_ssl=True,
         proxies = {"http": proxy, "https": proxy}
     else:
         proxies = None                   # để requests tự lấy proxy hệ thống
+    return session, proxies
+
+
+# ---------------------------------------------------------------------- #
+#  Kiểm tra SN bằng GET (trước khi cho chạy)                              #
+# ---------------------------------------------------------------------- #
+def check_sn(sn, prefix, suffix="", ok_contains="0", timeout=5.0,
+             verify_ssl=True, use_proxy=False, proxy="", logger=None):
+    """GET tới prefix+SN+suffix; SN hợp lệ nếu body CHỨA 'ok_contains'.
+
+    Trả về (ok: bool, message: str). ok=False khi: GET lỗi mạng, HTTP != 2xx,
+    hoặc body KHÔNG chứa chuỗi mong đợi -> bên gọi sẽ CHẶN, chờ quét mã khác.
+    """
+    if requests is None:
+        return False, "Chưa cài thư viện 'requests'"
+    url = "%s%s%s" % (prefix or "", sn, suffix or "")
+    try:
+        session, proxies = _make_session(use_proxy, proxy)
+        resp = session.get(url, timeout=timeout, verify=verify_ssl,
+                           proxies=proxies)
+        body = (resp.text or "").strip()
+        if logger:
+            logger("GET check SN -> HTTP %d" % resp.status_code)
+        if not (200 <= resp.status_code < 300):
+            return False, "MES từ chối kiểm tra SN (HTTP %d): %s" \
+                % (resp.status_code, short_error(resp.status_code, body))
+        if ok_contains and ok_contains not in body:
+            # body thường chứa lý do (vd 'da test', 'trung SN'...) -> hiện ra
+            return False, (body[:200] if body else "SN không hợp lệ (MES không trả mã cho phép)")
+        return True, "SN hợp lệ"
+    except Exception as ex:               # noqa: BLE001
+        return False, "Lỗi GET kiểm tra SN: %s" % ex
+
+
+# ---------------------------------------------------------------------- #
+#  Gửi POST (có retry khi lỗi mạng)                                       #
+# ---------------------------------------------------------------------- #
+def post_payload(url, payload, timeout=5.0, retries=3, verify_ssl=True,
+                 use_proxy=False, proxy="", ok_contains="", logger=None):
+    """Trả về (ok: bool, status_code, text). Retry kiểu lùi dần 2,4,8s.
+
+    use_proxy=False: bỏ qua proxy hệ thống (trust_env=False) — phù hợp MES nội bộ.
+    use_proxy=True : dùng 'proxy' nếu có nhập, ngược lại dùng proxy hệ thống.
+    ok_contains    : nếu có, POST chỉ THÀNH CÔNG khi body CHỨA chuỗi này
+                     (kể cả HTTP 200). Để trống -> chỉ dựa HTTP 2xx.
+    """
+    if requests is None:
+        msg = "Chua cai thu vien 'requests'"
+        if logger:
+            logger(msg)
+        return False, None, msg
+
+    session, proxies = _make_session(use_proxy, proxy)
 
     last_err = None
     for attempt in range(1, max(1, retries) + 1):
         try:
             resp = session.post(url, json=payload, timeout=timeout,
                                 verify=verify_ssl, proxies=proxies)
-            ok = 200 <= resp.status_code < 300
+            http_ok = 200 <= resp.status_code < 300
+            body = resp.text or ""
+            ok = http_ok and (not ok_contains or ok_contains in body)
             if logger:
                 logger("POST #%d -> HTTP %d" % (attempt, resp.status_code))
             if ok:
-                return True, resp.status_code, resp.text
+                return True, resp.status_code, body
+            # HTTP 2xx nhưng body không chứa chuỗi mong đợi -> MES báo lỗi
+            if http_ok and ok_contains and ok_contains not in body:
+                return False, resp.status_code, body
             # HTTP lỗi (4xx/5xx) -> không retry vô ích với 4xx
             if resp.status_code < 500:
-                return False, resp.status_code, resp.text
+                return False, resp.status_code, body
             last_err = "HTTP %d" % resp.status_code
         except Exception as ex:          # noqa: BLE001  (lỗi mạng -> retry)
             last_err = str(ex)

@@ -5,11 +5,17 @@ Lưu trình (giống nhau cho cả 2 bên, nhưng độc lập):
 
   1. Người dùng chọn mã liệu + loại đầu (8X / 16X) rồi bấm "Bắt đầu" (arm).
   2. Quét SN bằng tay scan của bên đó  -> submit_sn(sn).
+  2b. KIỂM TRA SN bằng GET (nếu bật): body phải CHỨA chuỗi cho phép thì mới
+      chạy; nếu không -> CHẶN, báo lỗi, chờ quét mã khác.
   3. Số lần chạy = số đầu của loại đã chọn (vd ABC có 2 đầu 8X -> 2 lần).
   4. Mỗi lần PLC bật bit trigger (sườn lên 0->1):
         - đọc DÒNG MỚI NHẤT trong file của bên (CCD1 trái / CCD2 phải)
         - ghi bit 'done' = 1 báo hoàn thành về PLC, chờ PLC nhả trigger, hạ done
-  5. Khi đủ số đầu -> GỘP dữ liệu -> POST 1 lần lên MES -> quay lại chờ quét.
+  5. Khi đủ số đầu -> GỘP dữ liệu -> POST 1 lần lên MES (chỉ thành công khi
+     body chứa chuỗi mong đợi) -> quay lại chờ quét.
+
+Trong suốt bước 2b → 5, mọi mã quét mới đều bị bỏ qua: CHỈ sau khi POST xong
+(quay về WAIT_SCAN) mới nhận SN tiếp theo.
 
 Module này KHÔNG phụ thuộc PySide6: phát sự kiện qua callback on_event(type,
 **data). Lớp giao diện sẽ marshal các sự kiện này về luồng GUI bằng signal.
@@ -191,6 +197,11 @@ class SideWorker:
             self._emit("log", text="Mã liệu '%s' không có đầu %s — bỏ qua SN %s."
                        % (mat_name, head_type, sn))
             return
+
+        # --- Bước 2b: kiểm tra SN bằng GET trước khi cho chạy ---
+        if not self._check_sn(sn):
+            return        # SN không hợp lệ -> ở lại WAIT_SCAN, chờ quét mã khác
+
         with self._lock:
             self._sn = sn
             self._readings = []
@@ -204,6 +215,29 @@ class SideWorker:
                    % (sn, total, head_type))
         self._emit("log", text="── Bắt đầu SN %s | mã liệu %s | %d đầu %s ──"
                    % (sn, mat_name, total, head_type))
+
+    def _check_sn(self, sn):
+        """GET kiểm tra SN. Trả True nếu hợp lệ (được chạy). False -> chặn."""
+        api = self.cfg.api
+        if not api.check_enabled:
+            return True
+        if not (api.check_url_prefix or api.check_url_suffix):
+            self._emit("log", text="  (Bỏ qua kiểm tra SN: chưa cấu hình URL GET)")
+            return True
+        self._emit("log", text="Kiểm tra SN %s qua GET…" % sn)
+        ok, msg = mes_api.check_sn(
+            sn, api.check_url_prefix, api.check_url_suffix,
+            ok_contains=api.check_ok_contains, timeout=api.timeout,
+            verify_ssl=api.verify_ssl, use_proxy=api.use_proxy, proxy=api.proxy,
+            logger=lambda m: self._emit("log", text="  " + m))
+        if ok:
+            self._emit("log", text="  SN hợp lệ — cho phép chạy.")
+            return True
+        self._emit("log", text="  [CHẶN] SN %s không hợp lệ: %s" % (sn, msg))
+        self._emit("log", text="  → Vui lòng quét mã khác.")
+        self._emit("sn_rejected", sn=sn, message=msg)
+        self._emit("status", text="SN %s bị chặn: %s" % (sn, msg))
+        return False
 
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:
@@ -293,6 +327,7 @@ class SideWorker:
             timeout=self.cfg.api.timeout, retries=self.cfg.api.retries,
             verify_ssl=self.cfg.api.verify_ssl,
             use_proxy=self.cfg.api.use_proxy, proxy=self.cfg.api.proxy,
+            ok_contains=self.cfg.api.post_ok_contains,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
             self._emit("log", text="  [OK] MES nhận OK (HTTP %s)" % code)

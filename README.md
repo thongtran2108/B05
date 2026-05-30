@@ -112,6 +112,25 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 
 ## 5. API MES
 
+### 5.1. Kiểm tra SN bằng GET (trước khi chạy)
+
+Ngay sau khi quét SN (trước khi nhận tín hiệu PLC), app gọi **GET** để hỏi MES
+xem SN có được phép chạy không:
+
+```
+GET  <check_url_prefix> + SN + <check_url_suffix>
+SN hợp lệ  ⇔  nội dung trả về CHỨA chuỗi `check_ok_contains` (mặc định "0")
+```
+
+- **Hợp lệ** → cho chạy bình thường.
+- **Không hợp lệ / GET lỗi mạng / HTTP ≠ 2xx** → **CHẶN**: hiện "SN BỊ CHẶN"
+  (banner hổ phách + dòng CHẶN trong bảng kèm lý do từ MES), **không chạy, không
+  tải lên**, chờ **quét mã khác**.
+- Tắt kiểm tra: bỏ chọn *"Bật kiểm tra SN bằng GET"* trong Setting > API
+  (`check_enabled=false`).
+
+### 5.2. Upload bằng POST (sau khi xong tất cả đầu)
+
 `requests.post(url, json=payload)` — 1 SN gọi **1 lần** sau khi xong tất cả đầu.
 
 ```json
@@ -119,11 +138,18 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 ```
 
 - `result` = OK nếu **mọi đầu** đều OK, ngược lại NG.
+- **POST thành công** ⇔ HTTP 2xx **và** body CHỨA `post_ok_contains` (mặc định
+  "200"). Để trống `post_ok_contains` → chỉ cần HTTP 2xx. Body không khớp →
+  báo "gửi lỗi" (banner hổ phách, cột MES `✗`).
 - `data_format` (tab API) đổi nội dung trường `data`:
   - `values_only` *(mặc định)* — chỉ các giá trị đo Data01..N.
   - `full_row` — cả dòng (Time, Judge, …) dạng chuỗi.
   - `structured` — cặp `{"Data01": .., …}`.
 - Có retry (lùi dần 2/4/8s) khi lỗi mạng.
+
+> **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC × số đầu)
+> → POST. Trong suốt quá trình này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi
+> POST xong (hoặc SN bị chặn/lỗi) mới nhận mã tiếp theo.
 
 ---
 
@@ -156,6 +182,8 @@ python -m tests.test_data_reader          # đọc CSV/XLSX + dựng payload
 python -m tests.test_worker               # lưu trình 1 bên (gộp đầu, POST)
 python -m tests.test_date_required        # đọc theo ngày + báo lỗi khi thiếu
 python -m tests.test_worker_missing_today # thiếu dữ liệu hôm nay -> hủy, không POST
+python -m tests.test_api_check            # GET kiểm tra SN + POST theo body
+python -m tests.test_worker_check_sn      # SN bị chặn -> chờ quét lại; SN tốt -> POST
 ```
 
 ---

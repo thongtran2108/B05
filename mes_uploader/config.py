@@ -72,6 +72,18 @@ class ApiConfig:
     use_proxy: bool = False
     proxy: str = ""          # vd "http://10.0.0.1:8080" (chỉ khi use_proxy=True)
 
+    # --- Kiểm tra SN bằng GET TRƯỚC khi chạy ---
+    # GET tới: check_url_prefix + SN + check_url_suffix
+    # SN hợp lệ nếu nội dung trả về CHỨA chuỗi check_ok_contains.
+    check_enabled: bool = True
+    check_url_prefix: str = ""      # vd "http://mes/api/check?sn="
+    check_url_suffix: str = ""      # vd "&station=OP10"
+    check_ok_contains: str = "0"    # body CHỨA chuỗi này -> SN hợp lệ (theo mẫu)
+
+    # --- Tiêu chí POST thành công ---
+    # body CHỨA chuỗi này -> coi là POST thành công (để trống = dựa HTTP 2xx)
+    post_ok_contains: str = "200"
+
 
 # ---------------------------------------------------------------------- #
 #  Đường dẫn file dữ liệu                                                 #

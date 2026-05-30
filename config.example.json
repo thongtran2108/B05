@@ -14,7 +14,12 @@
     "verify_ssl": true,
     "data_format": "values_only",
     "use_proxy": false,
-    "proxy": ""
+    "proxy": "",
+    "check_enabled": true,
+    "check_url_prefix": "http://mes/api/check?sn=",
+    "check_url_suffix": "",
+    "check_ok_contains": "0",
+    "post_ok_contains": "200"
   },
   "paths": {
     "base_dir": "sample_data",

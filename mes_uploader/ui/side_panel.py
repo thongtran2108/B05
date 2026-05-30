@@ -304,6 +304,8 @@ class SidePanel(QGroupBox):
             self._add_reading_row(data)
         elif etype == "error":
             self._show_error(data)
+        elif etype == "sn_rejected":
+            self._show_rejected(data)
         elif etype == "result":
             self._show_result(data.get("result", ""), data.get("ok", False))
             self._mark_uploaded(data.get("result", ""), data.get("ok", False))
@@ -398,6 +400,31 @@ class SidePanel(QGroupBox):
         jitem.setForeground(QColor(RED)); jitem.setFont(self._bold)
         t.scrollToBottom()
         self._pending_mes = []          # SN bị hủy, không có gì để đánh dấu MES
+
+    def _show_rejected(self, d):
+        """SN bị CHẶN ở bước kiểm tra GET: banner hổ phách + dòng CHẶN trong bảng."""
+        sn = str(d.get("sn", ""))
+        msg = str(d.get("message", "")).replace("\n", " ")
+        self.lbl_sn.setText(sn)
+        self.lbl_result.setText("SN BỊ CHẶN")
+        self.lbl_result.setStyleSheet(
+            "background:#9c6b1f; color:#fff; border-radius:10px; font-weight:800;")
+
+        t = self.table
+        r = t.rowCount(); t.insertRow(r)
+        texts = [sn, "—", "—", "CHẶN", "—", "—", msg]
+        for c, txt in enumerate(texts):
+            it = QTableWidgetItem(txt)
+            if c in (1, 2, 3, 5):
+                it.setTextAlignment(Qt.AlignCenter)
+            if c == 6:
+                it.setToolTip(msg)
+            it.setBackground(QColor("#2a241a"))
+            t.setItem(r, c, it)
+        jitem = t.item(r, 3)
+        jitem.setForeground(QColor(AMBER)); jitem.setFont(self._bold)
+        t.scrollToBottom()
+        self._pending_mes = []
 
     # ------------------------------------------------------------------ #
     #  Helper hiển thị                                                    #
