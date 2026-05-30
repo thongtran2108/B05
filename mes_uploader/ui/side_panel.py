@@ -302,6 +302,8 @@ class SidePanel(QGroupBox):
             self.progress.setValue(done)
         elif etype == "reading":
             self._add_reading_row(data)
+        elif etype == "error":
+            self._show_error(data)
         elif etype == "result":
             self._show_result(data.get("result", ""), data.get("ok", False))
             self._mark_uploaded(data.get("result", ""), data.get("ok", False))
@@ -370,6 +372,32 @@ class SidePanel(QGroupBox):
             it.setToolTip("Đã gửi MES (result=%s)" % result if ok
                           else "Gửi MES lỗi — xem nhật ký")
         self._pending_mes = []
+
+    def _show_error(self, d):
+        """Hiển thị lỗi thiếu dữ liệu: banner đỏ + 1 dòng LỖI trong bảng."""
+        msg = str(d.get("message", "")).replace("\n", " ")
+        self.lbl_result.setText("LỖI DỮ LIỆU")
+        self.lbl_result.setStyleSheet(
+            "background:#a3282d; color:#ffecec; border-radius:10px; font-weight:800;")
+        self.lbl_state.setText("Trạng thái: LỖI — " + msg)
+
+        t = self.table
+        r = t.rowCount(); t.insertRow(r)
+        texts = [str(d.get("sn", "")), str(d.get("head_type", "")),
+                 "%d/%d" % (d.get("index", 0), d.get("total", 0)),
+                 "LỖI", "—", "—", msg]
+        for c, txt in enumerate(texts):
+            it = QTableWidgetItem(txt)
+            if c in (1, 2, 3, 5):
+                it.setTextAlignment(Qt.AlignCenter)
+            if c == 6:
+                it.setToolTip(msg)
+            it.setBackground(QColor("#2a1e22"))
+            t.setItem(r, c, it)
+        jitem = t.item(r, 3)
+        jitem.setForeground(QColor(RED)); jitem.setFont(self._bold)
+        t.scrollToBottom()
+        self._pending_mes = []          # SN bị hủy, không có gì để đánh dấu MES
 
     # ------------------------------------------------------------------ #
     #  Helper hiển thị                                                    #

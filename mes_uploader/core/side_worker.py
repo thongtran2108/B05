@@ -211,17 +211,20 @@ class SideWorker:
             total = self._total
         self._emit("log", text="Nhận tín hiệu chạy — đầu %d/%d" % (idx, total))
 
-        # đọc dòng mới nhất của bên này
+        # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
         try:
             reading = data_reader.get_latest_for_side(
-                self.cfg.paths, side_cfg, head_type)
+                self.cfg.paths, side_cfg, head_type,
+                require_today=self.cfg.paths.require_today)
             self._emit("log", text="  Đọc %s: judge=%s, %d giá trị"
                        % (os.path.basename(reading["file"]),
                           reading["judge"], len(reading["values"])))
         except Exception as ex:              # noqa: BLE001
-            reading = {"time": "", "judge": "NG", "values": [],
-                       "headers": [], "raw": [], "file": ""}
-            self._emit("log", text="  LỖI đọc file: %s — đầu này tính NG" % ex)
+            # Thiếu dữ liệu ngày hôm nay / lỗi đọc -> BÁO LỖI và HỦY SN này
+            # (không upload nhầm, không tính NG giả).
+            self._abort_sn(trig, done, sn=self._sn, head_type=head_type,
+                           index=idx, total=total, message=str(ex))
+            return
 
         with self._lock:
             self._readings.append(reading)
@@ -242,6 +245,30 @@ class SideWorker:
 
         if runs >= total:
             self._finish(sn, readings)
+
+    def _abort_sn(self, trig, done, sn, head_type, index, total, message):
+        """Hủy SN đang chạy do thiếu dữ liệu: báo lỗi, KHÔNG upload, chờ quét lại.
+
+        Vẫn nhả handshake với PLC để dây chuyền không bị treo; thao tác viên
+        thấy lỗi trên giao diện và xử lý (vd file ngày hôm nay chưa được xuất).
+        """
+        self._emit("log", text="  [LỖI] %s" % message)
+        self._emit("log", text="  → Hủy SN %s, KHÔNG tải lên MES. Vui lòng kiểm tra dữ liệu."
+                   % sn)
+        self._emit("error", sn=sn, head_type=head_type, index=index,
+                   total=total, message=message)
+
+        # nhả handshake để PLC tiếp tục
+        self._handshake_done(trig, done)
+
+        with self._lock:
+            self._state = ST_WAIT_SCAN
+            self._sn = ""
+            self._readings = []
+            self._runs = 0
+        self._emit("state", state=ST_WAIT_SCAN)
+        self._emit("status", text="LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo."
+                   % sn)
 
     def _handshake_done(self, trig, done):
         """Ghi done=1 báo hoàn thành; chờ PLC nhả trigger; hạ done=0."""

@@ -17,9 +17,20 @@ chứ không dựa vào đuôi file.
 """
 
 import csv
+import datetime
 import glob
 import io
 import os
+
+
+class DataNotAvailableError(IOError):
+    """Không có dữ liệu cho ngày yêu cầu (thiếu thư mục ngày / thiếu file /
+    file chưa có dòng dữ liệu). Dùng để báo lỗi rõ ràng lên giao diện."""
+
+
+def today_str():
+    """Chuỗi ngày hôm nay dạng YYYYMMDD (khớp tên thư mục theo ngày)."""
+    return datetime.date.today().strftime("%Y%m%d")
 
 
 # ---------------------------------------------------------------------- #
@@ -120,7 +131,7 @@ def read_latest_measurement(path):
     """
     rows = _read_rows(path)
     if not rows:
-        raise IOError("File rong: %s" % path)
+        raise DataNotAvailableError("File rỗng: %s" % path)
 
     header = [str(h).strip() for h in rows[0]]
 
@@ -139,7 +150,7 @@ def read_latest_measurement(path):
     # dòng dữ liệu cuối cùng (bỏ qua dòng trống)
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not data_rows:
-        raise IOError("File khong co dong du lieu: %s" % path)
+        raise DataNotAvailableError("File chưa có dòng dữ liệu: %s" % path)
     last = data_rows[-1]
 
     def get(idx):
@@ -156,18 +167,43 @@ def read_latest_measurement(path):
     }
 
 
-def get_latest_for_side(paths_cfg, side_cfg, head_type):
+def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
+                        today=None):
     """Gộp tìm file + đọc dòng mới nhất cho 1 bên + 1 loại đầu.
 
-    paths_cfg : PathConfig
-    side_cfg  : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
-    head_type : '8X' hoặc '16X'
+    paths_cfg     : PathConfig
+    side_cfg      : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
+    head_type     : '8X' hoặc '16X'
+    require_today : True  -> CHỈ đọc thư mục ngày hôm nay; thiếu thì báo lỗi
+                            (không lấy nhầm dữ liệu của ngày cũ).
+                    False -> lấy file mới nhất ở thư mục ngày mới nhất (fallback).
+    today         : ghi đè ngày (YYYYMMDD) để kiểm thử; mặc định = hôm nay.
+
+    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
     """
     sub = paths_cfg.sub_8x if head_type == "8X" else paths_cfg.sub_16x
     type_dir = os.path.join(paths_cfg.base_dir, sub)
     name_glob = (paths_cfg.left_glob if side_cfg.ccd_prefix.upper() == "CCD1"
                  else paths_cfg.right_glob)
-    path = find_latest_file(type_dir, name_glob)
-    if path is None:
-        raise IOError("Khong tim thay file %s trong %s" % (name_glob, type_dir))
+
+    if require_today:
+        day = today or today_str()
+        day_dir = os.path.join(type_dir, day)
+        if not os.path.isdir(day_dir):
+            raise DataNotAvailableError(
+                "Chưa có dữ liệu cho ngày hôm nay (%s).\n"
+                "Thiếu thư mục: %s" % (day, day_dir))
+        matches = [m for m in glob.glob(os.path.join(day_dir, name_glob))
+                   if os.path.isfile(m)]
+        if not matches:
+            raise DataNotAvailableError(
+                "Ngày hôm nay (%s) chưa có file '%s'.\n"
+                "Trong thư mục: %s" % (day, name_glob, day_dir))
+        path = max(matches, key=os.path.getmtime)
+    else:
+        path = find_latest_file(type_dir, name_glob)
+        if path is None:
+            raise DataNotAvailableError(
+                "Không tìm thấy file '%s' trong %s" % (name_glob, type_dir))
+
     return read_latest_measurement(path)

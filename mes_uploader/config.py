@@ -85,6 +85,9 @@ class PathConfig:
     sub_16x: str = "16X/data"
     left_glob: str = "CCD1*"
     right_glob: str = "CCD2*"
+    # True  -> CHỈ đọc dữ liệu của ngày hôm nay; thiếu thì báo lỗi.
+    # False -> lấy dữ liệu ở thư mục ngày mới nhất (cho phép ngày cũ).
+    require_today: bool = True
 
 
 # ---------------------------------------------------------------------- #

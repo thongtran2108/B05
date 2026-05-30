@@ -21,7 +21,8 @@
     "sub_8x": "8X/data",
     "sub_16x": "16X/data",
     "left_glob": "CCD1*",
-    "right_glob": "CCD2*"
+    "right_glob": "CCD2*",
+    "require_today": true
   },
   "left": {
     "name": "LEFT",

@@ -26,6 +26,7 @@ def main():
     cfg.simulation = True
     cfg.poll_interval_ms = 30
     cfg.paths = PathConfig(base_dir=base)
+    cfg.paths.require_today = False    # data mẫu cố định ngày cũ
     cfg.materials = [MaterialConfig("ABC", heads_8x=2, heads_16x=1)]
 
     # chặn POST thật, ghi lại payload

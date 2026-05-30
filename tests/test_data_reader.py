@@ -20,9 +20,10 @@ def main():
     left = SideConfig(name="LEFT", ccd_prefix="CCD1")
     right = SideConfig(name="RIGHT", ccd_prefix="CCD2")
 
+    # Dữ liệu mẫu cố định ở ngày cũ (20260523/28) nên dùng require_today=False.
     print("== File mới nhất mỗi bên (8X) ==")
     for side in (left, right):
-        r = data_reader.get_latest_for_side(paths, side, "8X")
+        r = data_reader.get_latest_for_side(paths, side, "8X", require_today=False)
         print("  %-5s %s" % (side.ccd_prefix, os.path.relpath(r["file"], base)))
         print("        time=%s judge=%s  #values=%d  values[:3]=%s"
               % (r["time"], r["judge"], len(r["values"]), r["values"][:3]))
@@ -38,8 +39,8 @@ def main():
 
     # Gộp 2 đầu 8X -> 1 payload
     print("\n== build_payload (2 đầu, values_only) ==")
-    r1 = data_reader.get_latest_for_side(paths, left, "8X")
-    r2 = data_reader.get_latest_for_side(paths, left, "8X")
+    r1 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
+    r2 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
     payload = mes_api.build_payload("SN123456", [r1, r2], data_format="values_only")
     print("  sn=%s result=%s  so_dau=%d  so_value_dau1=%d"
           % (payload["sn"], payload["result"], len(payload["data"]),

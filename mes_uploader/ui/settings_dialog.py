@@ -80,6 +80,11 @@ class SettingsDialog(QDialog):
         form.addRow("Mẫu tên file Trái:", self.txt_lglob)
         form.addRow("Mẫu tên file Phải:", self.txt_rglob)
         form.addRow(QLabel("Đường dẫn = <gốc>/<con 8X|16X>/<YYYYMMDD>/CCD1*|CCD2*"))
+
+        self.chk_today = QCheckBox(
+            "Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)")
+        self.chk_today.setChecked(self.cfg.paths.require_today)
+        form.addRow(self.chk_today)
         return w
 
     def _browse_base(self):
@@ -216,6 +221,7 @@ class SettingsDialog(QDialog):
         c.paths.sub_16x = self.txt_sub16.text().strip()
         c.paths.left_glob = self.txt_lglob.text().strip() or "CCD1*"
         c.paths.right_glob = self.txt_rglob.text().strip() or "CCD2*"
+        c.paths.require_today = self.chk_today.isChecked()
 
         c.plc.ip = self.txt_plc_ip.text().strip()
         c.plc.port = self.spn_plc_port.value()
