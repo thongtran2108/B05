@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Cửa sổ chính: 2 panel Trái / Phải hoạt động độc lập + nút Setting."""
+"""Cửa sổ chính: header + 2 panel Trái / Phải độc lập + nút Setting."""
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout, QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+    QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton,
+    QVBoxLayout, QWidget,
 )
 
 from ..config import save_config
 from .side_panel import SidePanel
 from .settings_dialog import SettingsDialog
+from .theme import GREEN, AMBER
 
 
 class MainWindow(QMainWindow):
@@ -16,25 +19,18 @@ class MainWindow(QMainWindow):
         self.cfg = cfg
         self.config_path = config_path
         self.setWindowTitle("MES Uploader — Tải nội dung đo lên MES")
-        self.resize(1100, 720)
+        self.resize(1180, 760)
 
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
+        root.setContentsMargins(12, 12, 12, 12)
+        root.setSpacing(12)
 
-        # thanh công cụ trên cùng
-        top = QHBoxLayout()
-        self.btn_settings = QPushButton("⚙ Setting")
-        self.btn_settings.clicked.connect(self._open_settings)
-        top.addWidget(self.btn_settings)
-        top.addStretch(1)
-        self.lbl_mode = QPushButton()
-        self.lbl_mode.setEnabled(False)
-        top.addWidget(self.lbl_mode)
-        root.addLayout(top)
+        root.addWidget(self._build_header())
 
-        # 2 panel
         panels = QHBoxLayout()
+        panels.setSpacing(12)
         self.left = SidePanel("left", cfg)
         self.right = SidePanel("right", cfg)
         panels.addWidget(self.left, 1)
@@ -43,9 +39,32 @@ class MainWindow(QMainWindow):
 
         self._update_mode_label()
 
+    def _build_header(self):
+        header = QFrame(); header.setObjectName("header")
+        h = QHBoxLayout(header)
+        h.setContentsMargins(16, 10, 14, 10)
+
+        titles = QVBoxLayout(); titles.setSpacing(0)
+        t = QLabel("MES UPLOADER"); t.setObjectName("appTitle")
+        sub = QLabel("Tải nội dung đo lên hệ thống MES"); sub.setObjectName("muted")
+        titles.addWidget(t); titles.addWidget(sub)
+        h.addLayout(titles)
+        h.addStretch(1)
+
+        self.lbl_mode = QLabel(); self.lbl_mode.setObjectName("badge")
+        h.addWidget(self.lbl_mode)
+        self.btn_settings = QPushButton("⚙  Setting"); self.btn_settings.setObjectName("settingsBtn")
+        self.btn_settings.clicked.connect(self._open_settings)
+        h.addWidget(self.btn_settings)
+        return header
+
     def _update_mode_label(self):
-        self.lbl_mode.setText("Chế độ: GIẢ LẬP" if self.cfg.simulation
-                              else "Chế độ: THẬT (PLC + scan)")
+        if self.cfg.simulation:
+            self.lbl_mode.setText(
+                '<span style="color:%s">●</span>&nbsp; Chế độ GIẢ LẬP' % AMBER)
+        else:
+            self.lbl_mode.setText(
+                '<span style="color:%s">●</span>&nbsp; Chế độ THẬT (PLC + scan)' % GREEN)
 
     def _open_settings(self):
         dlg = SettingsDialog(self.cfg, self)

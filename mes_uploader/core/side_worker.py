@@ -231,6 +231,11 @@ class SideWorker:
             sn = self._sn
             readings = list(self._readings)
         self._emit("progress", done=runs, total=total)
+        # gửi chi tiết đầu vừa đọc lên bảng dữ liệu
+        self._emit("reading", sn=sn, head_type=head_type, index=idx, total=total,
+                   judge=reading.get("judge", ""), time=reading.get("time", ""),
+                   values=reading.get("values", []),
+                   file=os.path.basename(reading.get("file", "") or ""))
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)

@@ -39,8 +39,10 @@ def main():
     # import Qt muộn để các test/headless không cần PySide6
     from PySide6.QtWidgets import QApplication
     from mes_uploader.ui.main_window import MainWindow
+    from mes_uploader.ui.theme import apply_dark_theme
 
     app = QApplication(sys.argv)
+    apply_dark_theme(app)
     win = MainWindow(cfg, CONFIG_PATH)
     win.show()
     sys.exit(app.exec())
