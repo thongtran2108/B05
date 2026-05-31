@@ -6,7 +6,8 @@ Gồm các tab:
   - PLC     : IP / Port / timeout của PLC chung
   - API MES : URL, timeout, số lần retry, định dạng trường data
   - Bên trái / Bên phải : cổng COM tay scan, tiền tố CCD, địa chỉ bit handshake
-  - Mã liệu : bảng thêm/sửa/xóa mã liệu (tên + số đầu 8X + số đầu 16X)
+  - Mã liệu : bảng thêm/sửa/xóa mã liệu (tên + số đầu 8X + số đầu 16X),
+              kèm nút nhập hàng loạt từ file Excel/CSV
 """
 
 import copy
@@ -14,11 +15,12 @@ import copy
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
     QFileDialog, QFormLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-    QPushButton, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem,
-    QTabWidget, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QScrollArea, QSpinBox, QTableWidget,
+    QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from ..config import AppConfig, MaterialConfig
+from ..material_import import parse_materials
 
 
 def _section(title):
@@ -222,11 +224,16 @@ class SettingsDialog(QDialog):
 
         h = QHBoxLayout()
         b_add = QPushButton("Thêm mã liệu")
+        b_imp = QPushButton("Nhập từ Excel…")
         b_del = QPushButton("Xóa dòng chọn")
         b_add.clicked.connect(lambda: self._add_material_row("MÃ_MỚI", 0, 0))
+        b_imp.clicked.connect(self._import_materials)
         b_del.clicked.connect(self._del_material_row)
-        h.addWidget(b_add); h.addWidget(b_del); h.addStretch(1)
+        h.addWidget(b_add); h.addWidget(b_imp); h.addWidget(b_del); h.addStretch(1)
         v.addLayout(h)
+        v.addWidget(QLabel(
+            "Nhập từ Excel: file 3 cột (Tên mã liệu | Số đầu 8X | Số đầu 16X). "
+            "Trùng tên sẽ được cập nhật, mã mới sẽ thêm vào."))
         return w
 
     def _add_material_row(self, name, h8, h16):
@@ -240,6 +247,55 @@ class SettingsDialog(QDialog):
         r = self.tbl.currentRow()
         if r >= 0:
             self.tbl.removeRow(r)
+
+    def _material_rows_by_name(self):
+        """Map {tên mã liệu -> chỉ số dòng} của các mã hiện có trong bảng."""
+        out = {}
+        for r in range(self.tbl.rowCount()):
+            it = self.tbl.item(r, 0)
+            name = it.text().strip() if it else ""
+            if name and name not in out:
+                out[name] = r
+        return out
+
+    def _import_materials(self):
+        """Chọn file Excel/CSV -> nạp mã liệu vào bảng (gộp theo tên)."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Chọn file mã liệu (Excel/CSV)", self.cfg.paths.base_dir,
+            "Excel/CSV (*.xlsx *.xls *.xlsm *.csv);;Tất cả file (*)")
+        if not path:
+            return
+        try:
+            materials, skipped = parse_materials(path)
+        except Exception as ex:               # noqa: BLE001
+            QMessageBox.critical(self, "Nhập mã liệu",
+                                 "Không đọc được file:\n%s" % ex)
+            return
+        if not materials:
+            QMessageBox.warning(
+                self, "Nhập mã liệu",
+                "Không tìm thấy mã liệu hợp lệ trong file.\n"
+                "Cần 3 cột: Tên mã liệu | Số đầu 8X | Số đầu 16X.")
+            return
+
+        existing = self._material_rows_by_name()
+        added = updated = 0
+        for m in materials:
+            if m.name in existing:            # trùng tên -> cập nhật số đầu
+                r = existing[m.name]
+                self.tbl.setItem(r, 1, QTableWidgetItem(str(m.heads_8x)))
+                self.tbl.setItem(r, 2, QTableWidgetItem(str(m.heads_16x)))
+                updated += 1
+            else:                             # mã mới -> thêm dòng
+                self._add_material_row(m.name, m.heads_8x, m.heads_16x)
+                existing[m.name] = self.tbl.rowCount() - 1
+                added += 1
+
+        msg = "Đã nhập từ:\n%s\n\nThêm mới: %d — Cập nhật: %d" % (
+            path, added, updated)
+        if skipped:
+            msg += "\nBỏ qua %d dòng không có tên mã." % skipped
+        QMessageBox.information(self, "Nhập mã liệu", msg)
 
     # ------------------------------------------------------------------ #
     #  Đọc widget -> cấu hình                                             #

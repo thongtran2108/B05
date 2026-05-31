@@ -160,6 +160,7 @@ run.py                         điểm chạy (PySide6)
 config.example.json            mẫu cấu hình
 mes_uploader/
   config.py                    nạp/lưu cấu hình JSON, mã liệu, địa chỉ bit
+  material_import.py           nhập danh sách mã liệu từ file Excel/CSV
   data_reader.py               tìm file mới nhất + đọc dòng mới nhất (CSV/XLSX)
   mes_api.py                   dựng payload + POST (retry)
   hardware/
@@ -184,11 +185,33 @@ python -m tests.test_date_required        # đọc theo ngày + báo lỗi khi t
 python -m tests.test_worker_missing_today # thiếu dữ liệu hôm nay -> hủy, không POST
 python -m tests.test_api_check            # GET kiểm tra SN + POST theo body
 python -m tests.test_worker_check_sn      # SN bị chặn -> chờ quét lại; SN tốt -> POST
+python -m tests.test_material_import      # nhập mã liệu từ Excel/CSV
 ```
 
 ---
 
-## 7. Giả định hiện tại (báo nếu cần đổi)
+## 7. Quản lý mã liệu (kèm nhập từ Excel)
+
+Vào **⚙ Setting > Mã liệu**. Mỗi mã liệu gồm: **Tên mã liệu**, **Số đầu 8X**,
+**Số đầu 16X** (số đầu = số lần nhận tín hiệu PLC trước khi gộp & POST).
+
+- **Thêm mã liệu / Xóa dòng chọn**: thêm/sửa/xóa trực tiếp trong bảng.
+- **Nhập từ Excel…**: chọn 1 file `.xlsx`/`.xls`/`.csv` để nạp **hàng loạt**:
+  - File cần 3 cột: `Tên mã liệu | Số đầu 8X | Số đầu 16X`.
+  - **Tự nhận dòng tiêu đề** (kể cả tiếng Việt có dấu, không phân biệt thứ tự
+    cột); nếu file **không có tiêu đề** thì đọc theo thứ tự cột 1/2/3.
+  - Tự nhận diện CSV hay Excel **theo nội dung** (dùng chung bộ đọc với dữ
+    liệu đo). Dòng trống và dòng **không có tên mã** sẽ bị bỏ qua.
+  - **Gộp theo tên**: mã đã có sẽ được **cập nhật** số đầu, mã mới sẽ **thêm**
+    vào bảng. Sau khi nhập xong, bấm **OK** để lưu vào `config.json`.
+- File mẫu: `sample_data/mau_ma_lieu.xlsx`.
+
+> Lưu ý: nút *Nhập từ Excel* chỉ đổ dữ liệu vào bảng — phải bấm **OK** ở hộp
+> thoại Setting thì cấu hình mới được ghi xuống `config.json`.
+
+---
+
+## 8. Giả định hiện tại (báo nếu cần đổi)
 
 1. **1 PLC dùng chung** 2 bên (vẫn hỗ trợ 2 PLC qua IP/Port riêng mỗi bên).
 2. Loại đầu **8X/16X chọn thủ công** trên panel; số lần chạy lấy theo mã liệu.

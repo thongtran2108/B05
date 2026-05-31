@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Cấu hình sinh ra lúc chạy (tạo tự động từ config.example.json)
+mes_uploader_app/config.json
