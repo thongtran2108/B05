@@ -1,0 +1,68 @@
+{
+  "simulation": true,
+  "poll_interval_ms": 200,
+  "handshake_timeout_s": 10.0,
+  "plc": {
+    "ip": "192.168.1.250",
+    "port": 5000,
+    "timeout": 3.0
+  },
+  "api": {
+    "url": "http://localhost/api/mes/upload",
+    "timeout": 5.0,
+    "retries": 3,
+    "verify_ssl": true,
+    "data_format": "values_only",
+    "use_proxy": false,
+    "proxy": "",
+    "check_enabled": true,
+    "check_url_prefix": "http://mes/api/check?sn=",
+    "check_url_suffix": "",
+    "check_ok_contains": "0",
+    "post_ok_contains": "200"
+  },
+  "paths": {
+    "base_dir": "sample_data",
+    "sub_8x": "8X/data",
+    "sub_16x": "16X/data",
+    "left_glob": "CCD1*",
+    "right_glob": "CCD2*",
+    "require_today": true
+  },
+  "left": {
+    "name": "LEFT",
+    "scanner_port": "COM1",
+    "scanner_baud": 9600,
+    "ccd_prefix": "CCD1",
+    "trig_8x": "M100",
+    "done_8x": "M101",
+    "trig_16x": "M110",
+    "done_16x": "M111",
+    "plc_ip": "",
+    "plc_port": 0
+  },
+  "right": {
+    "name": "RIGHT",
+    "scanner_port": "COM2",
+    "scanner_baud": 9600,
+    "ccd_prefix": "CCD2",
+    "trig_8x": "M200",
+    "done_8x": "M201",
+    "trig_16x": "M210",
+    "done_16x": "M211",
+    "plc_ip": "",
+    "plc_port": 0
+  },
+  "materials": [
+    {
+      "name": "ABC",
+      "heads_8x": 2,
+      "heads_16x": 1
+    },
+    {
+      "name": "BCD",
+      "heads_8x": 4,
+      "heads_16x": 1
+    }
+  ]
+}
