@@ -61,20 +61,30 @@
   "materials": [
     {
       "name": "ABC",
+      "project": "Chuyên án A",
       "heads_4x": 0,
       "heads_8x": 2,
       "heads_16x": 1
     },
     {
       "name": "BCD",
+      "project": "Chuyên án A",
       "heads_4x": 0,
       "heads_8x": 4,
       "heads_16x": 1
     },
     {
       "name": "DEF",
+      "project": "Chuyên án B",
       "heads_4x": 3,
       "heads_8x": 0,
+      "heads_16x": 0
+    },
+    {
+      "name": "GHI",
+      "project": "Chuyên án B",
+      "heads_4x": 2,
+      "heads_8x": 2,
       "heads_16x": 0
     }
   ]

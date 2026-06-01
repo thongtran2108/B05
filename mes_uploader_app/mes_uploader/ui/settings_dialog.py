@@ -6,8 +6,8 @@ Gồm các tab:
   - PLC     : IP / Port / timeout của PLC chung
   - API MES : URL, timeout, số lần retry, định dạng trường data
   - Bên trái / Bên phải : cổng COM tay scan, tiền tố CCD, địa chỉ bit handshake
-  - Mã liệu : bảng thêm/sửa/xóa mã liệu (tên + số đầu 4X / 8X / 16X),
-              kèm nút nhập hàng loạt từ file Excel/CSV
+  - Mã liệu : bảng thêm/sửa/xóa mã liệu (chuyên án + tên + số đầu 4X/8X/16X);
+              mỗi chuyên án gom nhiều mã liệu, kèm nút nhập từ Excel/CSV
 """
 
 import copy
@@ -221,55 +221,72 @@ class SettingsDialog(QDialog):
     # ------------------------------------------------------------------ #
     def _tab_materials(self):
         w = QWidget(); v = QVBoxLayout(w)
-        self.tbl = QTableWidget(0, 4)
+        self.tbl = QTableWidget(0, 5)
         self.tbl.setHorizontalHeaderLabels(
-            ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"])
-        self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+            ["Chuyên án", "Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"])
+        hh = self.tbl.horizontalHeader()
+        hh.setSectionResizeMode(0, QHeaderView.Stretch)   # Chuyên án
+        hh.setSectionResizeMode(1, QHeaderView.Stretch)   # Tên mã liệu
         v.addWidget(self.tbl)
         for m in self.cfg.materials:
-            self._add_material_row(m.name, m.heads_4x, m.heads_8x, m.heads_16x)
+            self._add_material_row(m.project, m.name,
+                                   m.heads_4x, m.heads_8x, m.heads_16x)
 
         h = QHBoxLayout()
         b_add = QPushButton("Thêm mã liệu")
         b_imp = QPushButton("Nhập từ Excel…")
         b_del = QPushButton("Xóa dòng chọn")
-        b_add.clicked.connect(lambda: self._add_material_row("MÃ_MỚI", 0, 0, 0))
+        b_add.clicked.connect(
+            lambda: self._add_material_row(self._default_new_project(),
+                                           "MÃ_MỚI", 0, 0, 0))
         b_imp.clicked.connect(self._import_materials)
         b_del.clicked.connect(self._del_material_row)
         h.addWidget(b_add); h.addWidget(b_imp); h.addWidget(b_del); h.addStretch(1)
         v.addLayout(h)
         v.addWidget(QLabel(
-            "Nhập từ Excel: file có cột Tên mã liệu + Số đầu 4X / 8X / 16X "
-            "(loại nào không có để trống = 0). Trùng tên sẽ được cập nhật, "
-            "mã mới sẽ thêm vào. Mã chỉ có 1 vài loại đầu thì ngoài giao diện "
-            "chỉ hiện đúng các loại đó."))
+            "Cột: Chuyên án | Tên mã liệu | Số đầu 4X / 8X / 16X (loại nào "
+            "không có để trống = 0). Mỗi chuyên án gom nhiều mã liệu; ngoài "
+            "giao diện chọn Chuyên án rồi mới chọn Mã liệu, và chỉ hiện đúng "
+            "các loại đầu mà mã liệu có. Nhập từ Excel: trùng (chuyên án + tên) "
+            "sẽ cập nhật, còn lại thêm mới."))
         return w
 
-    def _add_material_row(self, name, h4, h8, h16):
+    def _add_material_row(self, project, name, h4, h8, h16):
         r = self.tbl.rowCount()
         self.tbl.insertRow(r)
-        self.tbl.setItem(r, 0, QTableWidgetItem(str(name)))
-        self.tbl.setItem(r, 1, QTableWidgetItem(str(h4)))
-        self.tbl.setItem(r, 2, QTableWidgetItem(str(h8)))
-        self.tbl.setItem(r, 3, QTableWidgetItem(str(h16)))
+        self.tbl.setItem(r, 0, QTableWidgetItem(str(project)))
+        self.tbl.setItem(r, 1, QTableWidgetItem(str(name)))
+        self.tbl.setItem(r, 2, QTableWidgetItem(str(h4)))
+        self.tbl.setItem(r, 3, QTableWidgetItem(str(h8)))
+        self.tbl.setItem(r, 4, QTableWidgetItem(str(h16)))
+
+    def _default_new_project(self):
+        """Chuyên án gợi ý cho dòng mới = chuyên án của dòng cuối (cho dễ nhập)."""
+        last = self.tbl.rowCount() - 1
+        if last >= 0:
+            it = self.tbl.item(last, 0)
+            if it and it.text().strip():
+                return it.text().strip()
+        return "Chuyên án 1"
 
     def _del_material_row(self):
         r = self.tbl.currentRow()
         if r >= 0:
             self.tbl.removeRow(r)
 
-    def _material_rows_by_name(self):
-        """Map {tên mã liệu -> chỉ số dòng} của các mã hiện có trong bảng."""
+    def _material_rows_by_key(self):
+        """Map {(chuyên án, tên mã liệu) -> chỉ số dòng} của các mã trong bảng."""
         out = {}
         for r in range(self.tbl.rowCount()):
-            it = self.tbl.item(r, 0)
-            name = it.text().strip() if it else ""
-            if name and name not in out:
-                out[name] = r
+            it_p = self.tbl.item(r, 0); it_n = self.tbl.item(r, 1)
+            proj = it_p.text().strip() if it_p else ""
+            name = it_n.text().strip() if it_n else ""
+            if name and (proj, name) not in out:
+                out[(proj, name)] = r
         return out
 
     def _import_materials(self):
-        """Chọn file Excel/CSV -> nạp mã liệu vào bảng (gộp theo tên)."""
+        """Chọn file Excel/CSV -> nạp mã liệu vào bảng (gộp theo chuyên án + tên)."""
         path, _ = QFileDialog.getOpenFileName(
             self, "Chọn file mã liệu (Excel/CSV)", self.cfg.paths.base_dir,
             "Excel/CSV (*.xlsx *.xls *.xlsm *.csv);;Tất cả file (*)")
@@ -288,18 +305,20 @@ class SettingsDialog(QDialog):
                 "Cần cột Tên mã liệu + ít nhất 1 cột Số đầu 4X / 8X / 16X.")
             return
 
-        existing = self._material_rows_by_name()
+        existing = self._material_rows_by_key()
         added = updated = 0
         for m in materials:
-            if m.name in existing:            # trùng tên -> cập nhật số đầu
-                r = existing[m.name]
-                self.tbl.setItem(r, 1, QTableWidgetItem(str(m.heads_4x)))
-                self.tbl.setItem(r, 2, QTableWidgetItem(str(m.heads_8x)))
-                self.tbl.setItem(r, 3, QTableWidgetItem(str(m.heads_16x)))
+            key = (m.project or "", m.name)
+            if key in existing:               # trùng (chuyên án + tên) -> cập nhật
+                r = existing[key]
+                self.tbl.setItem(r, 2, QTableWidgetItem(str(m.heads_4x)))
+                self.tbl.setItem(r, 3, QTableWidgetItem(str(m.heads_8x)))
+                self.tbl.setItem(r, 4, QTableWidgetItem(str(m.heads_16x)))
                 updated += 1
             else:                             # mã mới -> thêm dòng
-                self._add_material_row(m.name, m.heads_4x, m.heads_8x, m.heads_16x)
-                existing[m.name] = self.tbl.rowCount() - 1
+                self._add_material_row(m.project, m.name,
+                                       m.heads_4x, m.heads_8x, m.heads_16x)
+                existing[key] = self.tbl.rowCount() - 1
                 added += 1
 
         msg = "Đã nhập từ:\n%s\n\nThêm mới: %d — Cập nhật: %d" % (
@@ -359,14 +378,16 @@ class SettingsDialog(QDialog):
 
         mats = []
         for r in range(self.tbl.rowCount()):
-            name = (self.tbl.item(r, 0).text().strip()
-                    if self.tbl.item(r, 0) else "")
+            name = (self.tbl.item(r, 1).text().strip()
+                    if self.tbl.item(r, 1) else "")
             if not name:
                 continue
-            mats.append(MaterialConfig(name=name,
-                                       heads_4x=_to_int(self.tbl.item(r, 1)),
-                                       heads_8x=_to_int(self.tbl.item(r, 2)),
-                                       heads_16x=_to_int(self.tbl.item(r, 3))))
+            project = (self.tbl.item(r, 0).text().strip()
+                       if self.tbl.item(r, 0) else "")
+            mats.append(MaterialConfig(name=name, project=project,
+                                       heads_4x=_to_int(self.tbl.item(r, 2)),
+                                       heads_8x=_to_int(self.tbl.item(r, 3)),
+                                       heads_16x=_to_int(self.tbl.item(r, 4))))
         c.materials = mats
 
     def _on_accept(self):

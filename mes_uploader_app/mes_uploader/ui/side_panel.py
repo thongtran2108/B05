@@ -30,6 +30,9 @@ MAX_TABLE_ROWS = 1000
 # hiện loại nào mà mã liệu đang chọn THỰC SỰ có (số đầu > 0).
 HEAD_TYPES = ("4X", "8X", "16X")
 
+# Nhãn hiển thị cho mã liệu chưa gán chuyên án (project rỗng) — gom nhóm chung.
+PROJECT_DEFAULT_LABEL = "(Chung)"
+
 
 class HeadProgress(QWidget):
     """Thanh tiến độ đầu đo dạng segment: mỗi đầu 1 ô, tô sáng khi xong."""
@@ -111,7 +114,7 @@ class SidePanel(QGroupBox):
         self._bridge.event.connect(self._on_event)
 
         self._build_ui()
-        self._reload_materials()
+        self._reload_projects()
 
     # ------------------------------------------------------------------ #
     #  Dựng widget                                                        #
@@ -121,12 +124,20 @@ class SidePanel(QGroupBox):
         root.setContentsMargins(12, 18, 12, 12)
         root.setSpacing(9)
 
-        # --- Chọn mã liệu + loại đầu ---
+        # --- Chọn chuyên án + mã liệu + loại đầu ---
         sel = QHBoxLayout(); sel.setSpacing(14)
+
+        proj_col = QVBoxLayout(); proj_col.setSpacing(6)
+        proj_cap = QLabel("CHUYÊN ÁN"); proj_cap.setObjectName("caption")
+        self.cbo_project = QComboBox()
+        self.cbo_project.setMinimumWidth(120)
+        proj_col.addWidget(proj_cap); proj_col.addWidget(self.cbo_project)
+        sel.addLayout(proj_col, 1)
+
         mat_col = QVBoxLayout(); mat_col.setSpacing(6)
         mat_cap = QLabel("MÃ LIỆU"); mat_cap.setObjectName("caption")
         self.cbo_material = QComboBox()
-        self.cbo_material.setMinimumWidth(150)
+        self.cbo_material.setMinimumWidth(120)
         mat_col.addWidget(mat_cap); mat_col.addWidget(self.cbo_material)
         sel.addLayout(mat_col, 1)
 
@@ -148,6 +159,7 @@ class SidePanel(QGroupBox):
         type_col.addWidget(type_cap); type_col.addWidget(seg_group)
         sel.addLayout(type_col)
         root.addLayout(sel)
+        self.cbo_project.currentIndexChanged.connect(self._on_project_changed)
         self.cbo_material.currentIndexChanged.connect(self._on_material_changed)
         self.type_group.buttonClicked.connect(self._selection_changed)
 
@@ -270,14 +282,50 @@ class SidePanel(QGroupBox):
         self.stop_worker()
         self.cfg = cfg
         self.sim_box.setVisible(cfg.simulation)
+        self._reload_projects()
+
+    def _project_items(self):
+        """Danh sách (value, label) các chuyên án theo thứ tự xuất hiện.
+
+        value = chuỗi project gốc ('' = nhóm chung), label = chuỗi hiển thị.
+        """
+        items, seen = [], set()
+        for m in self.cfg.materials:
+            val = m.project or ""
+            if val not in seen:
+                seen.add(val)
+                items.append((val, val if val else PROJECT_DEFAULT_LABEL))
+        if not items:
+            items.append(("", PROJECT_DEFAULT_LABEL))
+        return items
+
+    def _current_project(self):
+        val = self.cbo_project.currentData()
+        return val if val is not None else ""
+
+    def _reload_projects(self):
+        """Nạp danh sách chuyên án vào combo, rồi nạp mã liệu của chuyên án đó."""
+        cur = self.cbo_project.currentData()
+        self.cbo_project.blockSignals(True)
+        self.cbo_project.clear()
+        for value, label in self._project_items():
+            self.cbo_project.addItem(label, value)
+        if cur is not None:
+            idx = self.cbo_project.findData(cur)
+            if idx >= 0:
+                self.cbo_project.setCurrentIndex(idx)
+        self.cbo_project.blockSignals(False)
         self._reload_materials()
 
     def _reload_materials(self):
+        """Nạp mã liệu thuộc chuyên án đang chọn vào combo mã liệu."""
         cur = self.cbo_material.currentText()
+        proj = self._current_project()
         self.cbo_material.blockSignals(True)
         self.cbo_material.clear()
         for m in self.cfg.materials:
-            self.cbo_material.addItem(m.name)
+            if (m.project or "") == proj:
+                self.cbo_material.addItem(m.name)
         idx = self.cbo_material.findText(cur)
         if idx >= 0:
             self.cbo_material.setCurrentIndex(idx)
@@ -286,8 +334,9 @@ class SidePanel(QGroupBox):
 
     def _current_material(self):
         name = self.cbo_material.currentText()
+        proj = self._current_project()
         for m in self.cfg.materials:
-            if m.name == name:
+            if m.name == name and (m.project or "") == proj:
                 return m
         return None
 
@@ -349,12 +398,14 @@ class SidePanel(QGroupBox):
 
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
+        self.cbo_project.setEnabled(False)
         self.cbo_material.setEnabled(False)
 
     def _on_stop(self):
         self.stop_worker()
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
+        self.cbo_project.setEnabled(True)
         self.cbo_material.setEnabled(True)
         self.lbl_state.setText("Trạng thái: đã dừng")
 
@@ -367,6 +418,11 @@ class SidePanel(QGroupBox):
     # ------------------------------------------------------------------ #
     #  Lựa chọn / giả lập / bảng                                          #
     # ------------------------------------------------------------------ #
+    def _on_project_changed(self, *_):
+        # Đổi chuyên án -> nạp lại danh sách mã liệu của chuyên án đó, rồi báo worker.
+        self._reload_materials()
+        self._selection_changed()
+
     def _on_material_changed(self, *_):
         # Đổi mã liệu -> cập nhật lại các nút loại đầu hiển thị, rồi báo worker.
         self._update_type_buttons()

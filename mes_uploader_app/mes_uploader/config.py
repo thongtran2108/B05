@@ -13,12 +13,16 @@ from typing import List
 
 
 # ---------------------------------------------------------------------- #
-#  Mã liệu: mỗi mã có số đầu 4X / 8X / 16X khác nhau                      #
-#  (mã có thể chỉ dùng 1 vài loại đầu — số đầu = 0 nghĩa là không có)     #
+#  Mã liệu: thuộc 1 chuyên án, mỗi mã có số đầu 4X / 8X / 16X khác nhau   #
+#  (mã có thể chỉ dùng 1 vài loại đầu — số đầu = 0 nghĩa là không có).    #
+#  "project" (chuyên án) dùng để gom nhóm mã liệu: mỗi chuyên án có danh  #
+#  sách mã liệu riêng; cùng tên mã liệu có thể nằm ở các chuyên án khác   #
+#  nhau. Bỏ trống project = nhóm chung (tương thích cấu hình cũ).         #
 # ---------------------------------------------------------------------- #
 @dataclass
 class MaterialConfig:
     name: str = ""          # tên mã liệu, vd "ABC"
+    project: str = ""       # chuyên án chứa mã liệu này (gom nhóm mã liệu)
     heads_4x: int = 0       # số đầu 4X  -> số lần chạy khi chọn 4X
     heads_8x: int = 0       # số đầu 8X  -> số lần chạy khi chọn 8X
     heads_16x: int = 0      # số đầu 16X -> số lần chạy khi chọn 16X

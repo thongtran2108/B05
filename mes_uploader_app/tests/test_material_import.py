@@ -74,18 +74,24 @@ def main():
     assert skipped == 1
 
     # 4) Đơn vị kiểm tra hàm phụ
+    #    _detect_columns trả về (idx_name, idx_proj, idx_4x, idx_8x, idx_16x)
     print("\n== _norm + _detect_columns ==")
     assert _norm("Số đầu 16X") == "sodau16x"
     assert _norm("Số đầu 4X") == "sodau4x"
     assert _norm("Tên mã liệu") == "tenmalieu"
-    # không có cột 4X -> idx_4x = None
+    assert _norm("Chuyên án") == "chuyenan"
+    # không có cột 4X / chuyên án -> idx = None
     assert _detect_columns(
-        ["Tên mã liệu", "Số đầu 8X", "Số đầu 16X"]) == (0, None, 1, 2)
+        ["Tên mã liệu", "Số đầu 8X", "Số đầu 16X"]) == (0, None, None, 1, 2)
     # đủ 3 loại đầu
     assert _detect_columns(
-        ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"]) == (0, 1, 2, 3)
+        ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"]) == (0, None, 1, 2, 3)
     # chỉ có cột 4X
-    assert _detect_columns(["Tên mã liệu", "Số đầu 4X"]) == (0, 1, None, None)
+    assert _detect_columns(["Tên mã liệu", "Số đầu 4X"]) == (0, None, 1, None, None)
+    # có cột Chuyên án
+    assert _detect_columns(
+        ["Chuyên án", "Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"]
+    ) == (1, 0, 2, 3, 4)
     assert _detect_columns(["ABC", "2", "1"]) is None   # không phải tiêu đề
     print("  OK")
 
@@ -101,6 +107,22 @@ def main():
     print("  %s" % [(m.name, m.heads_4x, m.heads_8x, m.heads_16x) for m in mats])
     assert (mats[0].heads_4x, mats[0].heads_8x, mats[0].heads_16x) == (5, 2, 1)
     assert (mats[1].heads_4x, mats[1].heads_8x, mats[1].heads_16x) == (3, 0, 0)
+    assert all(m.project == "" for m in mats)   # không có cột chuyên án -> rỗng
+
+    # 6) Cột Chuyên án: gom mã liệu theo chuyên án riêng
+    print("\n== Cột Chuyên án (mỗi chuyên án có mã liệu riêng) ==")
+    path = _write_xlsx([
+        ["Chuyên án", "Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"],
+        ["CA-A", "ABC", 0, 2, 1],
+        ["CA-A", "BCD", 0, 4, 0],
+        ["CA-B", "DEF", 3, 0, 0],           # chuyên án khác, mã liệu riêng
+    ])
+    mats, _ = parse_materials(path)
+    os.remove(path)
+    print("  %s" % [(m.project, m.name) for m in mats])
+    assert [(m.project, m.name) for m in mats] == [
+        ("CA-A", "ABC"), ("CA-A", "BCD"), ("CA-B", "DEF")]
+    assert (mats[2].heads_4x, mats[2].heads_8x, mats[2].heads_16x) == (3, 0, 0)
 
     print("\nTAT CA TEST PASS ✔")
 
