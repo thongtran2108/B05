@@ -173,7 +173,7 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
 
     paths_cfg     : PathConfig
     side_cfg      : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
-    head_type     : '8X' hoặc '16X'
+    head_type     : '4X', '8X' hoặc '16X'
     require_today : True  -> CHỈ đọc thư mục ngày hôm nay; thiếu thì báo lỗi
                             (không lấy nhầm dữ liệu của ngày cũ).
                     False -> lấy file mới nhất ở thư mục ngày mới nhất (fallback).
@@ -181,7 +181,12 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
 
     Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
     """
-    sub = paths_cfg.sub_8x if head_type == "8X" else paths_cfg.sub_16x
+    if head_type == "4X":
+        sub = paths_cfg.sub_4x
+    elif head_type == "8X":
+        sub = paths_cfg.sub_8x
+    else:
+        sub = paths_cfg.sub_16x
     type_dir = os.path.join(paths_cfg.base_dir, sub)
     name_glob = (paths_cfg.left_glob if side_cfg.ccd_prefix.upper() == "CCD1"
                  else paths_cfg.right_glob)

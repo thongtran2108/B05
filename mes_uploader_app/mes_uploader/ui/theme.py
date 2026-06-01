@@ -149,7 +149,7 @@ QPushButton#settingsBtn, QPushButton#ghostBtn {{
 }}
 QPushButton#settingsBtn:hover, QPushButton#ghostBtn:hover {{ background-color: #2a3543; border-color: #3c4a5e; }}
 
-/* ---- Segmented control (loại đầu 8X / 16X) ---- */
+/* ---- Segmented control (loại đầu 4X / 8X / 16X) ---- */
 QFrame#segGroup {{
     background-color: {BG2};
     border: 1px solid {BORDER2};

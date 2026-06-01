@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """Nhập danh sách mã liệu từ file Excel/CSV.
 
-File mã liệu gồm 3 cột:  Tên mã liệu | Số đầu 8X | Số đầu 16X
+File mã liệu gồm cột tên + các cột số đầu:
+    Tên mã liệu | Số đầu 4X | Số đầu 8X | Số đầu 16X
+Cột số đầu nào không có thì bỏ trống (mặc định 0) — một mã có thể chỉ
+dùng 1 vài loại đầu.
 
 - Tự nhận diện CSV hay XLSX theo *nội dung* (dùng chung bộ đọc của
   ``data_reader`` — không dựa vào đuôi file).
 - Tự nhận dòng tiêu đề (header) nếu có; nếu không có thì đọc theo thứ tự
-  cột (cột 1 = tên, cột 2 = số đầu 8X, cột 3 = số đầu 16X).
+  cột cũ (cột 1 = tên, cột 2 = số đầu 8X, cột 3 = số đầu 16X). Muốn nhập
+  cột 4X thì cần có dòng tiêu đề.
 - Bỏ qua dòng trống / dòng không có tên mã liệu.
 
 Module này KHÔNG phụ thuộc Qt nên có thể kiểm thử headless.
@@ -32,24 +36,28 @@ def _norm(value):
 
 
 def _detect_columns(header):
-    """Dò vị trí 3 cột từ dòng tiêu đề.
+    """Dò vị trí các cột từ dòng tiêu đề.
 
-    Trả về (idx_name, idx_8x, idx_16x) nếu nhận ra đây là dòng tiêu đề
-    (có cột tên + ít nhất 1 cột số đầu), ngược lại trả về None.
+    Trả về (idx_name, idx_4x, idx_8x, idx_16x) nếu nhận ra đây là dòng tiêu
+    đề (có cột tên + ít nhất 1 cột số đầu); cột nào không có = None.
+    Ngược lại trả về None (không phải dòng tiêu đề).
     """
-    idx_name = idx_8x = idx_16x = None
+    idx_name = idx_4x = idx_8x = idx_16x = None
     for i, cell in enumerate(header):
         h = _norm(cell)
         if not h:
             continue
-        if "16" in h:                       # xét 16 trước 8 (tránh nuốt nhầm)
+        if "16" in h:                       # xét 16 trước 8/4 (tránh nuốt nhầm)
             idx_16x = i
         elif "8" in h:
             idx_8x = i
+        elif "4" in h:
+            idx_4x = i
         elif any(k in h for k in _NAME_KEYS):
             idx_name = i
-    if idx_name is not None and (idx_8x is not None or idx_16x is not None):
-        return idx_name, idx_8x, idx_16x
+    if idx_name is not None and (idx_4x is not None or idx_8x is not None
+                                 or idx_16x is not None):
+        return idx_name, idx_4x, idx_8x, idx_16x
     return None
 
 
@@ -75,10 +83,10 @@ def parse_materials(path):
 
     cols = _detect_columns(rows[0])
     if cols is not None:
-        idx_name, idx_8x, idx_16x = cols
+        idx_name, idx_4x, idx_8x, idx_16x = cols
         data_rows = rows[1:]
-    else:                                   # không có tiêu đề -> theo thứ tự cột
-        idx_name, idx_8x, idx_16x = 0, 1, 2
+    else:                                   # không có tiêu đề -> theo thứ tự cột cũ
+        idx_name, idx_4x, idx_8x, idx_16x = 0, None, 1, 2
         data_rows = rows
 
     materials, skipped = [], 0
@@ -89,6 +97,7 @@ def parse_materials(path):
             continue
         materials.append(MaterialConfig(
             name=name,
+            heads_4x=_cell_int(r, idx_4x),
             heads_8x=_cell_int(r, idx_8x),
             heads_16x=_cell_int(r, idx_16x)))
     return materials, skipped

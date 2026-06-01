@@ -76,10 +76,31 @@ def main():
     # 4) Đơn vị kiểm tra hàm phụ
     print("\n== _norm + _detect_columns ==")
     assert _norm("Số đầu 16X") == "sodau16x"
+    assert _norm("Số đầu 4X") == "sodau4x"
     assert _norm("Tên mã liệu") == "tenmalieu"
-    assert _detect_columns(["Tên mã liệu", "Số đầu 8X", "Số đầu 16X"]) == (0, 1, 2)
+    # không có cột 4X -> idx_4x = None
+    assert _detect_columns(
+        ["Tên mã liệu", "Số đầu 8X", "Số đầu 16X"]) == (0, None, 1, 2)
+    # đủ 3 loại đầu
+    assert _detect_columns(
+        ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"]) == (0, 1, 2, 3)
+    # chỉ có cột 4X
+    assert _detect_columns(["Tên mã liệu", "Số đầu 4X"]) == (0, 1, None, None)
     assert _detect_columns(["ABC", "2", "1"]) is None   # không phải tiêu đề
     print("  OK")
+
+    # 5) File có cột 4X: nhận đủ 3 loại đầu + mã chỉ có đầu 4X
+    print("\n== Cột 4X (4X/8X/16X) + mã chỉ có 4X ==")
+    path = _write_xlsx([
+        ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"],
+        ["ABC", 5, 2, 1],
+        ["DEF", 3, 0, 0],                   # chỉ có đầu 4X
+    ])
+    mats, _ = parse_materials(path)
+    os.remove(path)
+    print("  %s" % [(m.name, m.heads_4x, m.heads_8x, m.heads_16x) for m in mats])
+    assert (mats[0].heads_4x, mats[0].heads_8x, mats[0].heads_16x) == (5, 2, 1)
+    assert (mats[1].heads_4x, mats[1].heads_8x, mats[1].heads_16x) == (3, 0, 0)
 
     print("\nTAT CA TEST PASS ✔")
 

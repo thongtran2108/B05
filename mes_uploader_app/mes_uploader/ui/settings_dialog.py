@@ -6,7 +6,7 @@ Gồm các tab:
   - PLC     : IP / Port / timeout của PLC chung
   - API MES : URL, timeout, số lần retry, định dạng trường data
   - Bên trái / Bên phải : cổng COM tay scan, tiền tố CCD, địa chỉ bit handshake
-  - Mã liệu : bảng thêm/sửa/xóa mã liệu (tên + số đầu 8X + số đầu 16X),
+  - Mã liệu : bảng thêm/sửa/xóa mã liệu (tên + số đầu 4X / 8X / 16X),
               kèm nút nhập hàng loạt từ file Excel/CSV
 """
 
@@ -80,15 +80,17 @@ class SettingsDialog(QDialog):
         hb = QWidget(); hb.setLayout(h)
         form.addRow("Thư mục gốc dữ liệu:", hb)
 
+        self.txt_sub4 = QLineEdit(self.cfg.paths.sub_4x)
         self.txt_sub8 = QLineEdit(self.cfg.paths.sub_8x)
         self.txt_sub16 = QLineEdit(self.cfg.paths.sub_16x)
         self.txt_lglob = QLineEdit(self.cfg.paths.left_glob)
         self.txt_rglob = QLineEdit(self.cfg.paths.right_glob)
+        form.addRow("Thư mục con 4X:", self.txt_sub4)
         form.addRow("Thư mục con 8X:", self.txt_sub8)
         form.addRow("Thư mục con 16X:", self.txt_sub16)
         form.addRow("Mẫu tên file Trái:", self.txt_lglob)
         form.addRow("Mẫu tên file Phải:", self.txt_rglob)
-        form.addRow(QLabel("Đường dẫn = <gốc>/<con 8X|16X>/<YYYYMMDD>/CCD1*|CCD2*"))
+        form.addRow(QLabel("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*"))
 
         self.chk_today = QCheckBox(
             "Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)")
@@ -187,6 +189,7 @@ class SettingsDialog(QDialog):
         baud = QSpinBox(); baud.setRange(1200, 921600); baud.setValue(side.scanner_baud)
         ccd = QComboBox(); ccd.addItems(["CCD1", "CCD2"])
         ccd.setCurrentText(side.ccd_prefix)
+        t4 = QLineEdit(side.trig_4x); d4 = QLineEdit(side.done_4x)
         t8 = QLineEdit(side.trig_8x); d8 = QLineEdit(side.done_8x)
         t16 = QLineEdit(side.trig_16x); d16 = QLineEdit(side.done_16x)
         pip = QLineEdit(side.plc_ip)
@@ -195,6 +198,8 @@ class SettingsDialog(QDialog):
         form.addRow("Cổng COM tay scan:", port)
         form.addRow("Baudrate:", baud)
         form.addRow("Tiền tố file (CCD):", ccd)
+        form.addRow("Bit trigger 4X:", t4)
+        form.addRow("Bit done 4X:", d4)
         form.addRow("Bit trigger 8X:", t8)
         form.addRow("Bit done 8X:", d8)
         form.addRow("Bit trigger 16X:", t16)
@@ -205,6 +210,7 @@ class SettingsDialog(QDialog):
         # lưu tham chiếu widget để đọc lại khi accept
         setattr(self, "_w_%s" % key, {
             "scanner_port": port, "scanner_baud": baud, "ccd_prefix": ccd,
+            "trig_4x": t4, "done_4x": d4,
             "trig_8x": t8, "done_8x": d8, "trig_16x": t16, "done_16x": d16,
             "plc_ip": pip, "plc_port": pport,
         })
@@ -215,33 +221,37 @@ class SettingsDialog(QDialog):
     # ------------------------------------------------------------------ #
     def _tab_materials(self):
         w = QWidget(); v = QVBoxLayout(w)
-        self.tbl = QTableWidget(0, 3)
-        self.tbl.setHorizontalHeaderLabels(["Tên mã liệu", "Số đầu 8X", "Số đầu 16X"])
+        self.tbl = QTableWidget(0, 4)
+        self.tbl.setHorizontalHeaderLabels(
+            ["Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"])
         self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         v.addWidget(self.tbl)
         for m in self.cfg.materials:
-            self._add_material_row(m.name, m.heads_8x, m.heads_16x)
+            self._add_material_row(m.name, m.heads_4x, m.heads_8x, m.heads_16x)
 
         h = QHBoxLayout()
         b_add = QPushButton("Thêm mã liệu")
         b_imp = QPushButton("Nhập từ Excel…")
         b_del = QPushButton("Xóa dòng chọn")
-        b_add.clicked.connect(lambda: self._add_material_row("MÃ_MỚI", 0, 0))
+        b_add.clicked.connect(lambda: self._add_material_row("MÃ_MỚI", 0, 0, 0))
         b_imp.clicked.connect(self._import_materials)
         b_del.clicked.connect(self._del_material_row)
         h.addWidget(b_add); h.addWidget(b_imp); h.addWidget(b_del); h.addStretch(1)
         v.addLayout(h)
         v.addWidget(QLabel(
-            "Nhập từ Excel: file 3 cột (Tên mã liệu | Số đầu 8X | Số đầu 16X). "
-            "Trùng tên sẽ được cập nhật, mã mới sẽ thêm vào."))
+            "Nhập từ Excel: file có cột Tên mã liệu + Số đầu 4X / 8X / 16X "
+            "(loại nào không có để trống = 0). Trùng tên sẽ được cập nhật, "
+            "mã mới sẽ thêm vào. Mã chỉ có 1 vài loại đầu thì ngoài giao diện "
+            "chỉ hiện đúng các loại đó."))
         return w
 
-    def _add_material_row(self, name, h8, h16):
+    def _add_material_row(self, name, h4, h8, h16):
         r = self.tbl.rowCount()
         self.tbl.insertRow(r)
         self.tbl.setItem(r, 0, QTableWidgetItem(str(name)))
-        self.tbl.setItem(r, 1, QTableWidgetItem(str(h8)))
-        self.tbl.setItem(r, 2, QTableWidgetItem(str(h16)))
+        self.tbl.setItem(r, 1, QTableWidgetItem(str(h4)))
+        self.tbl.setItem(r, 2, QTableWidgetItem(str(h8)))
+        self.tbl.setItem(r, 3, QTableWidgetItem(str(h16)))
 
     def _del_material_row(self):
         r = self.tbl.currentRow()
@@ -275,7 +285,7 @@ class SettingsDialog(QDialog):
             QMessageBox.warning(
                 self, "Nhập mã liệu",
                 "Không tìm thấy mã liệu hợp lệ trong file.\n"
-                "Cần 3 cột: Tên mã liệu | Số đầu 8X | Số đầu 16X.")
+                "Cần cột Tên mã liệu + ít nhất 1 cột Số đầu 4X / 8X / 16X.")
             return
 
         existing = self._material_rows_by_name()
@@ -283,11 +293,12 @@ class SettingsDialog(QDialog):
         for m in materials:
             if m.name in existing:            # trùng tên -> cập nhật số đầu
                 r = existing[m.name]
-                self.tbl.setItem(r, 1, QTableWidgetItem(str(m.heads_8x)))
-                self.tbl.setItem(r, 2, QTableWidgetItem(str(m.heads_16x)))
+                self.tbl.setItem(r, 1, QTableWidgetItem(str(m.heads_4x)))
+                self.tbl.setItem(r, 2, QTableWidgetItem(str(m.heads_8x)))
+                self.tbl.setItem(r, 3, QTableWidgetItem(str(m.heads_16x)))
                 updated += 1
             else:                             # mã mới -> thêm dòng
-                self._add_material_row(m.name, m.heads_8x, m.heads_16x)
+                self._add_material_row(m.name, m.heads_4x, m.heads_8x, m.heads_16x)
                 existing[m.name] = self.tbl.rowCount() - 1
                 added += 1
 
@@ -307,6 +318,7 @@ class SettingsDialog(QDialog):
         c.handshake_timeout_s = self.spn_hs.value()
 
         c.paths.base_dir = self.txt_base.text().strip()
+        c.paths.sub_4x = self.txt_sub4.text().strip()
         c.paths.sub_8x = self.txt_sub8.text().strip()
         c.paths.sub_16x = self.txt_sub16.text().strip()
         c.paths.left_glob = self.txt_lglob.text().strip() or "CCD1*"
@@ -336,6 +348,8 @@ class SettingsDialog(QDialog):
             side.scanner_port = ws["scanner_port"].text().strip()
             side.scanner_baud = ws["scanner_baud"].value()
             side.ccd_prefix = ws["ccd_prefix"].currentText()
+            side.trig_4x = ws["trig_4x"].text().strip()
+            side.done_4x = ws["done_4x"].text().strip()
             side.trig_8x = ws["trig_8x"].text().strip()
             side.done_8x = ws["done_8x"].text().strip()
             side.trig_16x = ws["trig_16x"].text().strip()
@@ -350,8 +364,9 @@ class SettingsDialog(QDialog):
             if not name:
                 continue
             mats.append(MaterialConfig(name=name,
-                                       heads_8x=_to_int(self.tbl.item(r, 1)),
-                                       heads_16x=_to_int(self.tbl.item(r, 2))))
+                                       heads_4x=_to_int(self.tbl.item(r, 1)),
+                                       heads_8x=_to_int(self.tbl.item(r, 2)),
+                                       heads_16x=_to_int(self.tbl.item(r, 3))))
         c.materials = mats
 
     def _on_accept(self):

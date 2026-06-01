@@ -26,6 +26,10 @@ from .theme import GREEN, RED, AMBER, ELEV2, BORDER2, CAPTION
 TABLE_COLS = ["SN", "Loại", "Đầu", "Judge", "Thời gian", "MES", "Giá trị (Data01..N)"]
 MAX_TABLE_ROWS = 1000
 
+# Các loại đầu hỗ trợ, theo thứ tự hiển thị (tăng dần). Thanh "LOẠI ĐẦU" chỉ
+# hiện loại nào mà mã liệu đang chọn THỰC SỰ có (số đầu > 0).
+HEAD_TYPES = ("4X", "8X", "16X")
+
 
 class HeadProgress(QWidget):
     """Thanh tiến độ đầu đo dạng segment: mỗi đầu 1 ô, tô sáng khi xong."""
@@ -134,7 +138,7 @@ class SidePanel(QGroupBox):
         self.type_group = QButtonGroup(self)
         self.type_group.setExclusive(True)
         self._type_btns = {}
-        for label in ("8X", "16X"):
+        for label in HEAD_TYPES:
             b = QPushButton(label); b.setObjectName("segBtn")
             b.setCheckable(True); b.setCursor(Qt.PointingHandCursor)
             seg_lay.addWidget(b)
@@ -144,7 +148,7 @@ class SidePanel(QGroupBox):
         type_col.addWidget(type_cap); type_col.addWidget(seg_group)
         sel.addLayout(type_col)
         root.addLayout(sel)
-        self.cbo_material.currentIndexChanged.connect(self._selection_changed)
+        self.cbo_material.currentIndexChanged.connect(self._on_material_changed)
         self.type_group.buttonClicked.connect(self._selection_changed)
 
         # --- Trạng thái + đèn PLC (chip) ---
@@ -278,6 +282,7 @@ class SidePanel(QGroupBox):
         if idx >= 0:
             self.cbo_material.setCurrentIndex(idx)
         self.cbo_material.blockSignals(False)
+        self._update_type_buttons()
 
     def _current_material(self):
         name = self.cbo_material.currentText()
@@ -287,10 +292,33 @@ class SidePanel(QGroupBox):
         return None
 
     def _current_type(self):
-        for label, btn in self._type_btns.items():
-            if btn.isChecked():
+        for label in HEAD_TYPES:
+            if self._type_btns[label].isChecked():
                 return label
-        return "8X"
+        for label in HEAD_TYPES:            # dự phòng: nút đang hiện đầu tiên
+            if self._type_btns[label].isVisible():
+                return label
+        return HEAD_TYPES[0]
+
+    def _update_type_buttons(self):
+        """Chỉ hiển thị các loại đầu mà mã liệu đang chọn THỰC SỰ có (số đầu > 0).
+
+        Mã liệu chỉ có 4X -> chỉ hiện nút 4X; chỉ có 8X+16X -> chỉ hiện 8X và
+        16X... Nếu mã liệu chưa khai báo số đầu nào (toàn 0) thì hiện tất cả để
+        người dùng còn thấy lựa chọn.
+        """
+        material = self._current_material()
+        avail = [t for t in HEAD_TYPES if head_count(material, t) > 0]
+        if not avail:
+            avail = list(HEAD_TYPES)
+        cur = self._current_type()
+        if cur not in avail:
+            cur = avail[0]
+        self.type_group.blockSignals(True)
+        for label, btn in self._type_btns.items():
+            btn.setVisible(label in avail)
+        self._type_btns[cur].setChecked(True)
+        self.type_group.blockSignals(False)
 
     # ------------------------------------------------------------------ #
     #  Bắt đầu / Dừng worker                                              #
@@ -339,6 +367,11 @@ class SidePanel(QGroupBox):
     # ------------------------------------------------------------------ #
     #  Lựa chọn / giả lập / bảng                                          #
     # ------------------------------------------------------------------ #
+    def _on_material_changed(self, *_):
+        # Đổi mã liệu -> cập nhật lại các nút loại đầu hiển thị, rồi báo worker.
+        self._update_type_buttons()
+        self._selection_changed()
+
     def _selection_changed(self, *_):
         if self.worker:
             self.worker.set_selection(self._current_material(), self._current_type())

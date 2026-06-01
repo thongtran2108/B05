@@ -23,6 +23,7 @@
   },
   "paths": {
     "base_dir": "sample_data",
+    "sub_4x": "4X/data",
     "sub_8x": "8X/data",
     "sub_16x": "16X/data",
     "left_glob": "CCD1*",
@@ -34,6 +35,8 @@
     "scanner_port": "COM1",
     "scanner_baud": 9600,
     "ccd_prefix": "CCD1",
+    "trig_4x": "M120",
+    "done_4x": "M121",
     "trig_8x": "M100",
     "done_8x": "M101",
     "trig_16x": "M110",
@@ -46,6 +49,8 @@
     "scanner_port": "COM2",
     "scanner_baud": 9600,
     "ccd_prefix": "CCD2",
+    "trig_4x": "M220",
+    "done_4x": "M221",
     "trig_8x": "M200",
     "done_8x": "M201",
     "trig_16x": "M210",
@@ -56,13 +61,21 @@
   "materials": [
     {
       "name": "ABC",
+      "heads_4x": 0,
       "heads_8x": 2,
       "heads_16x": 1
     },
     {
       "name": "BCD",
+      "heads_4x": 0,
       "heads_8x": 4,
       "heads_16x": 1
+    },
+    {
+      "name": "DEF",
+      "heads_4x": 3,
+      "heads_8x": 0,
+      "heads_16x": 0
     }
   ]
 }

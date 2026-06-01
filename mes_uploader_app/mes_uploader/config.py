@@ -13,11 +13,13 @@ from typing import List
 
 
 # ---------------------------------------------------------------------- #
-#  Mã liệu: mỗi mã có số đầu 8X và số đầu 16X khác nhau                   #
+#  Mã liệu: mỗi mã có số đầu 4X / 8X / 16X khác nhau                      #
+#  (mã có thể chỉ dùng 1 vài loại đầu — số đầu = 0 nghĩa là không có)     #
 # ---------------------------------------------------------------------- #
 @dataclass
 class MaterialConfig:
     name: str = ""          # tên mã liệu, vd "ABC"
+    heads_4x: int = 0       # số đầu 4X  -> số lần chạy khi chọn 4X
     heads_8x: int = 0       # số đầu 8X  -> số lần chạy khi chọn 8X
     heads_16x: int = 0      # số đầu 16X -> số lần chạy khi chọn 16X
 
@@ -35,6 +37,8 @@ class SideConfig:
     # --- Địa chỉ bit handshake với PLC (Mitsubishi) ---
     # trig_*: bit PLC bật =1 báo "chạy" (app đọc - poll)
     # done_*: bit app ghi =1 báo "đã lấy xong dữ liệu" về PLC
+    trig_4x: str = "M120"
+    done_4x: str = "M121"
     trig_8x: str = "M100"
     done_8x: str = "M101"
     trig_16x: str = "M110"
@@ -87,12 +91,13 @@ class ApiConfig:
 
 # ---------------------------------------------------------------------- #
 #  Đường dẫn file dữ liệu                                                 #
-#    <base_dir>/<sub_8x>/<YYYYMMDD>/CCD1*  (bên trái)                     #
-#    <base_dir>/<sub_8x>/<YYYYMMDD>/CCD2*  (bên phải)                     #
+#    <base_dir>/<sub_4x|sub_8x|sub_16x>/<YYYYMMDD>/CCD1*  (bên trái)      #
+#    <base_dir>/<sub_4x|sub_8x|sub_16x>/<YYYYMMDD>/CCD2*  (bên phải)      #
 # ---------------------------------------------------------------------- #
 @dataclass
 class PathConfig:
     base_dir: str = "sample_data"
+    sub_4x: str = "4X/data"
     sub_8x: str = "8X/data"
     sub_16x: str = "16X/data"
     left_glob: str = "CCD1*"
@@ -116,9 +121,11 @@ class AppConfig:
     paths: PathConfig = field(default_factory=PathConfig)
     left: SideConfig = field(default_factory=lambda: SideConfig(
         name="LEFT", ccd_prefix="CCD1", scanner_port="COM1",
+        trig_4x="M120", done_4x="M121",
         trig_8x="M100", done_8x="M101", trig_16x="M110", done_16x="M111"))
     right: SideConfig = field(default_factory=lambda: SideConfig(
         name="RIGHT", ccd_prefix="CCD2", scanner_port="COM2",
+        trig_4x="M220", done_4x="M221",
         trig_8x="M200", done_8x="M201", trig_16x="M210", done_16x="M211"))
     materials: List[MaterialConfig] = field(default_factory=list)
 
@@ -165,7 +172,9 @@ def save_config(cfg, path):
 
 
 def side_addresses(side_cfg, head_type):
-    """Trả về (trigger_bit, done_bit) theo loại đầu '8X' / '16X'."""
+    """Trả về (trigger_bit, done_bit) theo loại đầu '4X' / '8X' / '16X'."""
+    if head_type == "4X":
+        return side_cfg.trig_4x, side_cfg.done_4x
     if head_type == "8X":
         return side_cfg.trig_8x, side_cfg.done_8x
     return side_cfg.trig_16x, side_cfg.done_16x
@@ -175,4 +184,8 @@ def head_count(material, head_type):
     """Số đầu (số lần chạy) của 1 mã liệu theo loại đầu."""
     if material is None:
         return 0
-    return material.heads_8x if head_type == "8X" else material.heads_16x
+    if head_type == "4X":
+        return material.heads_4x
+    if head_type == "8X":
+        return material.heads_8x
+    return material.heads_16x
