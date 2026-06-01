@@ -10,7 +10,7 @@ nhận tín hiệu chạy từ **PLC Mitsubishi** (MC Protocol 3E / SLMP).
 ## 1. Lưu trình mỗi bên
 
 ```
-Chọn mã liệu + loại đầu (8X/16X)  ->  Bấm "Bắt đầu"
+Chọn chuyên án + mã liệu + loại đầu (4X/8X/16X)  ->  Bấm "Bắt đầu"
         │
         ▼
 Quét SN bằng tay scan của bên đó  (Trái = CCD1, Phải = CCD2)
@@ -192,19 +192,27 @@ python -m tests.test_material_import      # nhập mã liệu từ Excel/CSV
 
 ## 7. Quản lý mã liệu (kèm nhập từ Excel)
 
-Vào **⚙ Setting > Mã liệu**. Mỗi mã liệu gồm: **Tên mã liệu**, **Số đầu 8X**,
-**Số đầu 16X** (số đầu = số lần nhận tín hiệu PLC trước khi gộp & POST).
+Vào **⚙ Setting > Mã liệu**. Mỗi mã liệu thuộc một **Chuyên án** và gồm:
+**Tên mã liệu**, **Số đầu 4X / 8X / 16X** (số đầu = số lần nhận tín hiệu PLC
+trước khi gộp & POST). Ngoài giao diện chọn **Chuyên án → Mã liệu → Loại đầu**;
+mỗi chuyên án có danh sách mã liệu riêng và chỉ hiện đúng các loại đầu mà mã
+liệu thực sự có.
 
 - **Thêm mã liệu / Xóa dòng chọn**: thêm/sửa/xóa trực tiếp trong bảng.
 - **Nhập từ Excel…**: chọn 1 file `.xlsx`/`.xls`/`.csv` để nạp **hàng loạt**:
-  - File cần 3 cột: `Tên mã liệu | Số đầu 8X | Số đầu 16X`.
+  - Cột: `Chuyên án | Tên mã liệu | Số đầu 4X | Số đầu 8X | Số đầu 16X`. Cột
+    **Chuyên án** và **Số đầu 4X** là **tùy chọn** (thiếu Chuyên án = nhóm
+    chung; thiếu cột số đầu nào = 0 đầu loại đó).
   - **Tự nhận dòng tiêu đề** (kể cả tiếng Việt có dấu, không phân biệt thứ tự
-    cột); nếu file **không có tiêu đề** thì đọc theo thứ tự cột 1/2/3.
+    cột); nếu file **không có tiêu đề** thì đọc theo thứ tự cột cũ (1 = tên,
+    2 = số đầu 8X, 3 = số đầu 16X). Muốn nhập **Chuyên án** hoặc **Số đầu 4X**
+    thì file cần có dòng tiêu đề.
   - Tự nhận diện CSV hay Excel **theo nội dung** (dùng chung bộ đọc với dữ
     liệu đo). Dòng trống và dòng **không có tên mã** sẽ bị bỏ qua.
-  - **Gộp theo tên**: mã đã có sẽ được **cập nhật** số đầu, mã mới sẽ **thêm**
-    vào bảng. Sau khi nhập xong, bấm **OK** để lưu vào `config.json`.
-- File mẫu: `sample_data/mau_ma_lieu.xlsx`.
+  - **Gộp theo (chuyên án + tên)**: mã trùng sẽ được **cập nhật** số đầu, mã
+    mới sẽ **thêm** vào bảng. Sau khi nhập xong, bấm **OK** để lưu vào
+    `config.json`.
+- File mẫu: `sample_data/mau_ma_lieu.xlsx` (5 cột như trên, gom theo chuyên án).
 
 > Lưu ý: nút *Nhập từ Excel* chỉ đổ dữ liệu vào bảng — phải bấm **OK** ở hộp
 > thoại Setting thì cấu hình mới được ghi xuống `config.json`.
@@ -214,7 +222,8 @@ Vào **⚙ Setting > Mã liệu**. Mỗi mã liệu gồm: **Tên mã liệu**, 
 ## 8. Giả định hiện tại (báo nếu cần đổi)
 
 1. **1 PLC dùng chung** 2 bên (vẫn hỗ trợ 2 PLC qua IP/Port riêng mỗi bên).
-2. Loại đầu **8X/16X chọn thủ công** trên panel; số lần chạy lấy theo mã liệu.
+2. Chọn **Chuyên án → Mã liệu → Loại đầu** trên panel; chỉ hiện loại đầu
+   (4X/8X/16X) mà mã liệu có; số lần chạy lấy theo mã liệu.
 3. Quét SN **trước**, rồi mới tới các tín hiệu chạy của PLC.
 4. `result` = tổng hợp Judge (NG nếu có bất kỳ đầu NG).
 5. Tay trái → panel trái (CCD1), tay phải → panel phải (CCD2).
