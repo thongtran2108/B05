@@ -48,6 +48,18 @@ def main():
     assert payload["sn"] == "SN123456"
     assert payload["result"] in ("OK", "NG")
     assert len(payload["data"]) == 2
+    # 3 trường mới: mặc định rỗng khi không truyền
+    assert payload["project"] == "" and payload["material"] == ""
+    assert payload["measuring_head"] == ""
+
+    # build_payload có chuyên án / mã liệu / loại đầu đo
+    print("\n== build_payload kèm project/material/measuring_head ==")
+    p2 = mes_api.build_payload("SN1", [r1], project="Chuyên án A",
+                               material="ABC", measuring_head="16X")
+    print("  project=%s material=%s measuring_head=%s"
+          % (p2["project"], p2["material"], p2["measuring_head"]))
+    assert (p2["project"], p2["material"], p2["measuring_head"]) == (
+        "Chuyên án A", "ABC", "16X")
 
     print("\nTAT CA TEST PASS ✔")
 

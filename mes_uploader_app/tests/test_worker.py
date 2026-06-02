@@ -27,7 +27,8 @@ def main():
     cfg.poll_interval_ms = 30
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False    # data mẫu cố định ngày cũ
-    cfg.materials = [MaterialConfig("ABC", heads_8x=2, heads_16x=1)]
+    cfg.materials = [MaterialConfig("ABC", project="Chuyên án A",
+                                    heads_8x=2, heads_16x=1)]
     # API riêng theo đầu: chọn 8X -> POST phải đi tới URL của đầu 8X
     cfg.api.api_8x.url = "http://mes/8x/upload"
 
@@ -80,6 +81,10 @@ def main():
     assert payload["sn"] == "SN-LEFT-001"
     assert len(payload["data"]) == 2, "Phải gộp đúng 2 đầu"
     assert captured["url"] == "http://mes/8x/upload", "POST phải đi tới API đầu 8X"
+    # body có thêm chuyên án / mã liệu / loại đầu đo đang chạy
+    assert payload["project"] == "Chuyên án A", "body phải có chuyên án đang chạy"
+    assert payload["material"] == "ABC", "body phải có mã liệu đang chạy"
+    assert payload["measuring_head"] == "8X", "body phải có loại đầu đo đang chạy"
     assert results and results[-1]["sn"] == "SN-LEFT-001"
     print("\nTEST WORKER PASS ✔")
 

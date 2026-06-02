@@ -6,7 +6,9 @@ Theo yêu cầu:
   - Trường "data" chỉ chứa các giá trị đo Data01..N (data_format mặc định
     = "values_only"). Vẫn hỗ trợ thêm "full_row" / "structured" để chỉnh
     nhanh trong Setting nếu MES cần định dạng khác.
-  - JSON: {"sn": ..., "result": "OK"/"NG", "data": ...}
+  - JSON: {"sn", "project", "material", "measuring_head",
+           "result": "OK"/"NG", "data": ...}
+    (project = chuyên án, material = mã liệu, measuring_head = loại đầu đo)
 """
 
 import time
@@ -30,9 +32,14 @@ def overall_result(readings):
 # ---------------------------------------------------------------------- #
 #  Dựng payload JSON                                                      #
 # ---------------------------------------------------------------------- #
-def build_payload(sn, readings, data_format="values_only"):
+def build_payload(sn, readings, data_format="values_only",
+                  project="", material="", measuring_head=""):
     """readings: list dict trả về từ data_reader.read_latest_measurement,
     theo đúng thứ tự các lần chạy (đầu 1, đầu 2, ...).
+
+    project        : chuyên án đang chạy
+    material       : mã liệu đang chạy
+    measuring_head : loại đầu đo đang chạy ("4X" / "8X" / "16X")
 
     - values_only : data = [[Data01..N của đầu 1], [... đầu 2], ...]
     - full_row    : data = ["Time,Judge,...,DataN" (đầu 1), ...]
@@ -49,6 +56,9 @@ def build_payload(sn, readings, data_format="values_only"):
 
     return {
         "sn": sn,
+        "project": project,
+        "material": material,
+        "measuring_head": measuring_head,
         "result": overall_result(readings),
         "data": data,
     }
