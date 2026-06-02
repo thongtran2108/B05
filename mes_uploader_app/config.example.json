@@ -8,18 +8,36 @@
     "timeout": 3.0
   },
   "api": {
-    "url": "http://localhost/api/mes/upload",
     "timeout": 5.0,
     "retries": 3,
     "verify_ssl": true,
     "data_format": "values_only",
     "use_proxy": false,
     "proxy": "",
-    "check_enabled": true,
-    "check_url_prefix": "http://mes/api/check?sn=",
-    "check_url_suffix": "",
-    "check_ok_contains": "0",
-    "post_ok_contains": "200"
+    "api_4x": {
+      "url": "http://localhost/api/mes/upload/4x",
+      "post_ok_contains": "200",
+      "check_enabled": true,
+      "check_url_prefix": "http://mes/api/check?line=4x&sn=",
+      "check_url_suffix": "",
+      "check_ok_contains": "0"
+    },
+    "api_8x": {
+      "url": "http://localhost/api/mes/upload/8x",
+      "post_ok_contains": "200",
+      "check_enabled": true,
+      "check_url_prefix": "http://mes/api/check?line=8x&sn=",
+      "check_url_suffix": "",
+      "check_ok_contains": "0"
+    },
+    "api_16x": {
+      "url": "http://localhost/api/mes/upload/16x",
+      "post_ok_contains": "200",
+      "check_enabled": true,
+      "check_url_prefix": "http://mes/api/check?line=16x&sn=",
+      "check_url_suffix": "",
+      "check_ok_contains": "0"
+    }
   },
   "paths": {
     "base_dir": "sample_data",

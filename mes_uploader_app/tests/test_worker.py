@@ -28,6 +28,8 @@ def main():
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False    # data mẫu cố định ngày cũ
     cfg.materials = [MaterialConfig("ABC", heads_8x=2, heads_16x=1)]
+    # API riêng theo đầu: chọn 8X -> POST phải đi tới URL của đầu 8X
+    cfg.api.api_8x.url = "http://mes/8x/upload"
 
     # chặn POST thật, ghi lại payload
     captured = {}
@@ -77,6 +79,7 @@ def main():
           % (len(payload["data"]), len(payload["data"][0])))
     assert payload["sn"] == "SN-LEFT-001"
     assert len(payload["data"]) == 2, "Phải gộp đúng 2 đầu"
+    assert captured["url"] == "http://mes/8x/upload", "POST phải đi tới API đầu 8X"
     assert results and results[-1]["sn"] == "SN-LEFT-001"
     print("\nTEST WORKER PASS ✔")
 

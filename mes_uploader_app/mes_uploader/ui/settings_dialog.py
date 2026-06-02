@@ -125,59 +125,70 @@ class SettingsDialog(QDialog):
     # ------------------------------------------------------------------ #
     def _tab_api(self):
         w = QWidget(); form = QFormLayout(w)
-        self.txt_url = QLineEdit(self.cfg.api.url)
+        api = self.cfg.api
+
+        # --- Tham số kết nối dùng chung cho mọi loại đầu ---
+        form.addRow(_section("Kết nối chung (mọi loại đầu)"))
         self.spn_api_to = QDoubleSpinBox(); self.spn_api_to.setRange(0.5, 60)
-        self.spn_api_to.setValue(self.cfg.api.timeout); self.spn_api_to.setSuffix(" s")
+        self.spn_api_to.setValue(api.timeout); self.spn_api_to.setSuffix(" s")
         self.spn_retries = QSpinBox(); self.spn_retries.setRange(1, 10)
-        self.spn_retries.setValue(self.cfg.api.retries)
+        self.spn_retries.setValue(api.retries)
         self.chk_verify = QCheckBox("Kiểm tra chứng chỉ SSL")
-        self.chk_verify.setChecked(self.cfg.api.verify_ssl)
+        self.chk_verify.setChecked(api.verify_ssl)
         self.cbo_fmt = QComboBox()
         self.cbo_fmt.addItems(["values_only", "full_row", "structured"])
-        self.cbo_fmt.setCurrentText(self.cfg.api.data_format)
+        self.cbo_fmt.setCurrentText(api.data_format)
         self.chk_proxy = QCheckBox("Đi qua proxy hệ thống")
-        self.chk_proxy.setChecked(self.cfg.api.use_proxy)
-        self.txt_proxy = QLineEdit(self.cfg.api.proxy)
+        self.chk_proxy.setChecked(api.use_proxy)
+        self.txt_proxy = QLineEdit(api.proxy)
         self.txt_proxy.setPlaceholderText("vd http://10.0.0.1:8080 (để trống = proxy hệ thống)")
-
-        # --- POST: upload kết quả ---
-        form.addRow(_section("POST — Upload kết quả"))
-        form.addRow("URL POST:", self.txt_url)
         form.addRow("Timeout:", self.spn_api_to)
         form.addRow("Số lần retry:", self.spn_retries)
         form.addRow(self.chk_verify)
         form.addRow("Định dạng trường data:", self.cbo_fmt)
         form.addRow(QLabel("values_only = chỉ Data01..N | full_row = cả dòng | "
                            "structured = key:value"))
-        self.txt_post_ok = QLineEdit(self.cfg.api.post_ok_contains)
-        self.txt_post_ok.setPlaceholderText("vd 200 (để trống = chỉ cần HTTP 2xx)")
-        form.addRow("POST OK khi body chứa:", self.txt_post_ok)
-
-        # --- GET: kiểm tra SN trước khi chạy ---
-        form.addRow(_section("GET — Kiểm tra SN trước khi chạy"))
-        self.chk_check = QCheckBox("Bật kiểm tra SN bằng GET")
-        self.chk_check.setChecked(self.cfg.api.check_enabled)
-        self.txt_check_pre = QLineEdit(self.cfg.api.check_url_prefix)
-        self.txt_check_pre.setPlaceholderText("vd http://mes/api/check?sn=")
-        self.txt_check_suf = QLineEdit(self.cfg.api.check_url_suffix)
-        self.txt_check_suf.setPlaceholderText("vd &station=OP10 (có thể để trống)")
-        self.txt_check_ok = QLineEdit(self.cfg.api.check_ok_contains)
-        self.txt_check_ok.setPlaceholderText("vd 0 — body chứa chuỗi này thì SN hợp lệ")
-        form.addRow(self.chk_check)
-        form.addRow("URL GET (tiền tố):", self.txt_check_pre)
-        form.addRow("URL GET (hậu tố):", self.txt_check_suf)
-        form.addRow("SN hợp lệ khi body chứa:", self.txt_check_ok)
-        form.addRow(QLabel("GET tới: <tiền tố> + SN + <hậu tố>. SN sai -> CHẶN, "
-                           "chờ quét mã khác (không tải lên)."))
-
-        # --- Proxy ---
-        form.addRow(_section("Proxy"))
         form.addRow(self.chk_proxy)
         form.addRow("Proxy thủ công:", self.txt_proxy)
         form.addRow(QLabel("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
                            "mạng và phải qua proxy công ty."))
+
+        # --- API RIÊNG cho từng loại đầu: chọn đầu nào sẽ chạy theo API đó ---
+        self._w_api = {}
+        for label, head_cfg in (("4X", api.api_4x), ("8X", api.api_8x),
+                                ("16X", api.api_16x)):
+            form.addRow(_section("API đầu %s — chọn đầu %s sẽ chạy theo API này"
+                                 % (label, label)))
+            self._w_api[label] = self._add_head_api_rows(form, head_cfg)
+        form.addRow(QLabel("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
+                           "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
+                           "CHẶN, không tải lên)."))
+
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
         return scroll
+
+    def _add_head_api_rows(self, form, head_cfg):
+        """Thêm các dòng cấu hình API cho 1 loại đầu; trả về dict widget."""
+        url = QLineEdit(head_cfg.url)
+        post_ok = QLineEdit(head_cfg.post_ok_contains)
+        post_ok.setPlaceholderText("vd 200 (để trống = chỉ cần HTTP 2xx)")
+        chk = QCheckBox("Bật kiểm tra SN bằng GET")
+        chk.setChecked(head_cfg.check_enabled)
+        pre = QLineEdit(head_cfg.check_url_prefix)
+        pre.setPlaceholderText("vd http://mes/api/check?sn=")
+        suf = QLineEdit(head_cfg.check_url_suffix)
+        suf.setPlaceholderText("vd &station=OP10 (có thể để trống)")
+        chk_ok = QLineEdit(head_cfg.check_ok_contains)
+        chk_ok.setPlaceholderText("vd 0 — body chứa chuỗi này thì SN hợp lệ")
+        form.addRow("URL POST (upload):", url)
+        form.addRow("POST OK khi body chứa:", post_ok)
+        form.addRow(chk)
+        form.addRow("URL GET (tiền tố):", pre)
+        form.addRow("URL GET (hậu tố):", suf)
+        form.addRow("SN hợp lệ khi body chứa:", chk_ok)
+        return {"url": url, "post_ok_contains": post_ok, "check_enabled": chk,
+                "check_url_prefix": pre, "check_url_suffix": suf,
+                "check_ok_contains": chk_ok}
 
     # ------------------------------------------------------------------ #
     #  Tab Bên trái / phải                                                #
@@ -348,18 +359,21 @@ class SettingsDialog(QDialog):
         c.plc.port = self.spn_plc_port.value()
         c.plc.timeout = self.spn_plc_to.value()
 
-        c.api.url = self.txt_url.text().strip()
         c.api.timeout = self.spn_api_to.value()
         c.api.retries = self.spn_retries.value()
         c.api.verify_ssl = self.chk_verify.isChecked()
         c.api.data_format = self.cbo_fmt.currentText()
         c.api.use_proxy = self.chk_proxy.isChecked()
         c.api.proxy = self.txt_proxy.text().strip()
-        c.api.post_ok_contains = self.txt_post_ok.text().strip()
-        c.api.check_enabled = self.chk_check.isChecked()
-        c.api.check_url_prefix = self.txt_check_pre.text().strip()
-        c.api.check_url_suffix = self.txt_check_suf.text().strip()
-        c.api.check_ok_contains = self.txt_check_ok.text().strip()
+        for label, head_cfg in (("4X", c.api.api_4x), ("8X", c.api.api_8x),
+                                ("16X", c.api.api_16x)):
+            ws = self._w_api[label]
+            head_cfg.url = ws["url"].text().strip()
+            head_cfg.post_ok_contains = ws["post_ok_contains"].text().strip()
+            head_cfg.check_enabled = ws["check_enabled"].isChecked()
+            head_cfg.check_url_prefix = ws["check_url_prefix"].text().strip()
+            head_cfg.check_url_suffix = ws["check_url_suffix"].text().strip()
+            head_cfg.check_ok_contains = ws["check_ok_contains"].text().strip()
 
         for key in ("left", "right"):
             ws = getattr(self, "_w_%s" % key)

@@ -67,8 +67,28 @@ class PlcConfig:
 #  API MES                                                                #
 # ---------------------------------------------------------------------- #
 @dataclass
+class HeadApiConfig:
+    """API riêng cho 1 loại đầu (4X / 8X / 16X).
+
+    Gồm endpoint POST (tải kết quả) + GET kiểm tra SN + tiêu chí OK. Chọn loại
+    đầu nào thì worker chạy theo đúng API này. Các tham số kết nối (timeout,
+    retry, SSL, proxy, định dạng data) dùng CHUNG ở ApiConfig.
+    """
+    url: str = "http://localhost/api/mes/upload"   # POST tải kết quả
+    # body CHỨA chuỗi này -> coi là POST thành công (để trống = dựa HTTP 2xx)
+    post_ok_contains: str = "200"
+
+    # --- Kiểm tra SN bằng GET TRƯỚC khi chạy ---
+    # GET tới: check_url_prefix + SN + check_url_suffix
+    # SN hợp lệ nếu nội dung trả về CHỨA chuỗi check_ok_contains.
+    check_enabled: bool = True
+    check_url_prefix: str = ""      # vd "http://mes/api/check?sn="
+    check_url_suffix: str = ""      # vd "&station=OP10"
+    check_ok_contains: str = "0"    # body CHỨA chuỗi này -> SN hợp lệ (theo mẫu)
+
+
+@dataclass
 class ApiConfig:
-    url: str = "http://localhost/api/mes/upload"
     timeout: float = 5.0
     retries: int = 3
     verify_ssl: bool = True
@@ -80,17 +100,10 @@ class ApiConfig:
     use_proxy: bool = False
     proxy: str = ""          # vd "http://10.0.0.1:8080" (chỉ khi use_proxy=True)
 
-    # --- Kiểm tra SN bằng GET TRƯỚC khi chạy ---
-    # GET tới: check_url_prefix + SN + check_url_suffix
-    # SN hợp lệ nếu nội dung trả về CHỨA chuỗi check_ok_contains.
-    check_enabled: bool = True
-    check_url_prefix: str = ""      # vd "http://mes/api/check?sn="
-    check_url_suffix: str = ""      # vd "&station=OP10"
-    check_ok_contains: str = "0"    # body CHỨA chuỗi này -> SN hợp lệ (theo mẫu)
-
-    # --- Tiêu chí POST thành công ---
-    # body CHỨA chuỗi này -> coi là POST thành công (để trống = dựa HTTP 2xx)
-    post_ok_contains: str = "200"
+    # --- API riêng theo loại đầu: chọn đầu nào sẽ chạy theo API tương ứng ---
+    api_4x: HeadApiConfig = field(default_factory=HeadApiConfig)
+    api_8x: HeadApiConfig = field(default_factory=HeadApiConfig)
+    api_16x: HeadApiConfig = field(default_factory=HeadApiConfig)
 
 
 # ---------------------------------------------------------------------- #
@@ -148,8 +161,10 @@ def _from_dict(cls, data):
             continue
         val = data[f.name]
         hint = type_hints[f.name]
-        if cls is AppConfig and f.name in ("plc", "api", "paths", "left", "right"):
-            sub_cls = {"plc": PlcConfig, "api": ApiConfig, "paths": PathConfig,
+        if cls is AppConfig and f.name == "api":
+            kwargs[f.name] = _api_from_dict(val)
+        elif cls is AppConfig and f.name in ("plc", "paths", "left", "right"):
+            sub_cls = {"plc": PlcConfig, "paths": PathConfig,
                        "left": SideConfig, "right": SideConfig}[f.name]
             kwargs[f.name] = _from_dict(sub_cls, val)
         elif f.name == "materials":
@@ -157,6 +172,40 @@ def _from_dict(cls, data):
         else:
             kwargs[f.name] = val
     return cls(**kwargs)
+
+
+def _legacy_head_api(data):
+    """Lấy HeadApiConfig từ các trường API 'phẳng' kiểu cũ (1 API chung)."""
+    kwargs = {}
+    for name in ("url", "post_ok_contains", "check_enabled",
+                 "check_url_prefix", "check_url_suffix", "check_ok_contains"):
+        if name in data:
+            kwargs[name] = data[name]
+    return HeadApiConfig(**kwargs)
+
+
+def _api_from_dict(data):
+    """Dựng ApiConfig từ dict, hỗ trợ 2 dạng:
+
+      - MỚI: có api_4x / api_8x / api_16x (mỗi đầu 1 HeadApiConfig riêng).
+      - CŨ : các trường url / check_* / post_ok_contains nằm thẳng trong 'api'
+             (1 API chung) -> tự nhân ra cho cả 3 loại đầu (mỗi đầu 1 bản độc
+             lập) để giữ nguyên hành vi khi nâng cấp.
+    """
+    if not isinstance(data, dict):
+        return ApiConfig()
+    shared = {}
+    for f in fields(ApiConfig):
+        if f.name in ("api_4x", "api_8x", "api_16x"):
+            continue
+        if f.name in data:
+            shared[f.name] = data[f.name]
+    heads = {}
+    for fld in ("api_4x", "api_8x", "api_16x"):
+        sub = data.get(fld)
+        heads[fld] = (_from_dict(HeadApiConfig, sub) if isinstance(sub, dict)
+                      else _legacy_head_api(data))
+    return ApiConfig(**shared, **heads)
 
 
 def load_config(path):
@@ -193,3 +242,12 @@ def head_count(material, head_type):
     if head_type == "8X":
         return material.heads_8x
     return material.heads_16x
+
+
+def head_api(api_cfg, head_type):
+    """Trả về HeadApiConfig (API riêng) theo loại đầu '4X' / '8X' / '16X'."""
+    if head_type == "4X":
+        return api_cfg.api_4x
+    if head_type == "8X":
+        return api_cfg.api_8x
+    return api_cfg.api_16x

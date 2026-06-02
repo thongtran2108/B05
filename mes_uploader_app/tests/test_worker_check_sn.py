@@ -30,10 +30,11 @@ def main():
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False           # data mẫu ngày cũ
     cfg.materials = [MaterialConfig("ABC", heads_8x=1, heads_16x=1)]
-    cfg.api.check_enabled = True
-    cfg.api.check_url_prefix = "http://mes/check?sn="
-    cfg.api.check_ok_contains = "0"
-    cfg.api.post_ok_contains = "200"
+    # API riêng cho đầu 8X (worker arm 8X) — kiểm tra SN + POST theo API này
+    cfg.api.api_8x.check_enabled = True
+    cfg.api.api_8x.check_url_prefix = "http://mes/check?sn="
+    cfg.api.api_8x.check_ok_contains = "0"
+    cfg.api.api_8x.post_ok_contains = "200"
 
     # GET giả: chỉ SN 'GOOD' hợp lệ
     def fake_check(sn, prefix, suffix="", ok_contains="0", **kw):

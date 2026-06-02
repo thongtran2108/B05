@@ -112,6 +112,11 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 
 ## 5. API MES
 
+> **Mỗi loại đầu (4X / 8X / 16X) có API riêng.** Chọn loại đầu nào thì cả
+> bước kiểm tra SN (GET) lẫn upload (POST) đều chạy theo **endpoint của loại
+> đầu đó** (`Setting > API MES > "API đầu 4X/8X/16X"`). Các tham số kết nối
+> (timeout, retry, SSL, proxy, `data_format`) **dùng chung** cho mọi loại đầu.
+
 ### 5.1. Kiểm tra SN bằng GET (trước khi chạy)
 
 Ngay sau khi quét SN (trước khi nhận tín hiệu PLC), app gọi **GET** để hỏi MES
@@ -186,6 +191,7 @@ python -m tests.test_worker_missing_today # thiếu dữ liệu hôm nay -> hủ
 python -m tests.test_api_check            # GET kiểm tra SN + POST theo body
 python -m tests.test_worker_check_sn      # SN bị chặn -> chờ quét lại; SN tốt -> POST
 python -m tests.test_material_import      # nhập mã liệu từ Excel/CSV
+python -m tests.test_config_api           # API riêng theo loại đầu + migrate cấu hình cũ
 ```
 
 ---

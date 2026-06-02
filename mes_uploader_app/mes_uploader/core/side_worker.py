@@ -27,7 +27,7 @@ import threading
 import time
 
 from .. import data_reader, mes_api
-from ..config import side_addresses, head_count
+from ..config import side_addresses, head_count, head_api
 from ..hardware.plc_client import MockPlcClient
 
 
@@ -198,8 +198,8 @@ class SideWorker:
                        % (mat_name, head_type, sn))
             return
 
-        # --- Bước 2b: kiểm tra SN bằng GET trước khi cho chạy ---
-        if not self._check_sn(sn):
+        # --- Bước 2b: kiểm tra SN bằng GET trước khi cho chạy (theo API loại đầu) ---
+        if not self._check_sn(sn, head_type):
             return        # SN không hợp lệ -> ở lại WAIT_SCAN, chờ quét mã khác
 
         with self._lock:
@@ -216,18 +216,20 @@ class SideWorker:
         self._emit("log", text="── Bắt đầu SN %s | mã liệu %s | %d đầu %s ──"
                    % (sn, mat_name, total, head_type))
 
-    def _check_sn(self, sn):
-        """GET kiểm tra SN. Trả True nếu hợp lệ (được chạy). False -> chặn."""
+    def _check_sn(self, sn, head_type):
+        """GET kiểm tra SN theo API của loại đầu. True=hợp lệ (chạy), False=chặn."""
         api = self.cfg.api
-        if not api.check_enabled:
+        head = head_api(api, head_type)
+        if not head.check_enabled:
             return True
-        if not (api.check_url_prefix or api.check_url_suffix):
-            self._emit("log", text="  (Bỏ qua kiểm tra SN: chưa cấu hình URL GET)")
+        if not (head.check_url_prefix or head.check_url_suffix):
+            self._emit("log", text="  (Bỏ qua kiểm tra SN: chưa cấu hình URL GET cho đầu %s)"
+                       % head_type)
             return True
-        self._emit("log", text="Kiểm tra SN %s qua GET…" % sn)
+        self._emit("log", text="Kiểm tra SN %s qua GET (API đầu %s)…" % (sn, head_type))
         ok, msg = mes_api.check_sn(
-            sn, api.check_url_prefix, api.check_url_suffix,
-            ok_contains=api.check_ok_contains, timeout=api.timeout,
+            sn, head.check_url_prefix, head.check_url_suffix,
+            ok_contains=head.check_ok_contains, timeout=api.timeout,
             verify_ssl=api.verify_ssl, use_proxy=api.use_proxy, proxy=api.proxy,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
@@ -278,7 +280,7 @@ class SideWorker:
         self._handshake_done(trig, done)
 
         if runs >= total:
-            self._finish(sn, readings)
+            self._finish(sn, readings, head_type)
 
     def _abort_sn(self, trig, done, sn, head_type, index, total, message):
         """Hủy SN đang chạy do thiếu dữ liệu: báo lỗi, KHÔNG upload, chờ quét lại.
@@ -318,16 +320,18 @@ class SideWorker:
                 time.sleep(max(0.02, self.cfg.poll_interval_ms / 1000.0))
         self._safe_write_bit(done, 0)
 
-    def _finish(self, sn, readings):
-        payload = mes_api.build_payload(sn, readings, self.cfg.api.data_format)
-        self._emit("log", text="Đủ %d đầu → POST MES: sn=%s, result=%s"
-                   % (len(readings), payload["sn"], payload["result"]))
+    def _finish(self, sn, readings, head_type):
+        api = self.cfg.api
+        head = head_api(api, head_type)
+        payload = mes_api.build_payload(sn, readings, api.data_format)
+        self._emit("log", text="Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s"
+                   % (len(readings), head_type, payload["sn"], payload["result"]))
         ok, code, text = mes_api.post_payload(
-            self.cfg.api.url, payload,
-            timeout=self.cfg.api.timeout, retries=self.cfg.api.retries,
-            verify_ssl=self.cfg.api.verify_ssl,
-            use_proxy=self.cfg.api.use_proxy, proxy=self.cfg.api.proxy,
-            ok_contains=self.cfg.api.post_ok_contains,
+            head.url, payload,
+            timeout=api.timeout, retries=api.retries,
+            verify_ssl=api.verify_ssl,
+            use_proxy=api.use_proxy, proxy=api.proxy,
+            ok_contains=head.post_ok_contains,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
             self._emit("log", text="  [OK] MES nhận OK (HTTP %s)" % code)
