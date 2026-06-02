@@ -22,6 +22,8 @@ import glob
 import io
 import os
 
+from .i18n import tr
+
 
 class DataNotAvailableError(IOError):
     """Không có dữ liệu cho ngày yêu cầu (thiếu thư mục ngày / thiếu file /
@@ -131,7 +133,7 @@ def read_latest_measurement(path):
     """
     rows = _read_rows(path)
     if not rows:
-        raise DataNotAvailableError("File rỗng: %s" % path)
+        raise DataNotAvailableError(tr("File rỗng: %s") % path)
 
     header = [str(h).strip() for h in rows[0]]
 
@@ -150,7 +152,7 @@ def read_latest_measurement(path):
     # dòng dữ liệu cuối cùng (bỏ qua dòng trống)
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not data_rows:
-        raise DataNotAvailableError("File chưa có dòng dữ liệu: %s" % path)
+        raise DataNotAvailableError(tr("File chưa có dòng dữ liệu: %s") % path)
     last = data_rows[-1]
 
     def get(idx):
@@ -196,19 +198,19 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
         day_dir = os.path.join(type_dir, day)
         if not os.path.isdir(day_dir):
             raise DataNotAvailableError(
-                "Chưa có dữ liệu cho ngày hôm nay (%s).\n"
-                "Thiếu thư mục: %s" % (day, day_dir))
+                tr("Chưa có dữ liệu cho ngày hôm nay (%s).\n"
+                   "Thiếu thư mục: %s") % (day, day_dir))
         matches = [m for m in glob.glob(os.path.join(day_dir, name_glob))
                    if os.path.isfile(m)]
         if not matches:
             raise DataNotAvailableError(
-                "Ngày hôm nay (%s) chưa có file '%s'.\n"
-                "Trong thư mục: %s" % (day, name_glob, day_dir))
+                tr("Ngày hôm nay (%s) chưa có file '%s'.\n"
+                   "Trong thư mục: %s") % (day, name_glob, day_dir))
         path = max(matches, key=os.path.getmtime)
     else:
         path = find_latest_file(type_dir, name_glob)
         if path is None:
             raise DataNotAvailableError(
-                "Không tìm thấy file '%s' trong %s" % (name_glob, type_dir))
+                tr("Không tìm thấy file '%s' trong %s") % (name_glob, type_dir))
 
     return read_latest_measurement(path)

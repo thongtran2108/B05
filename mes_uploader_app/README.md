@@ -46,6 +46,12 @@ python run.py
 - Sửa cấu hình bằng nút **⚙ Setting** trên giao diện (lưu vào `config.json`).
 - Xem `config.example.json` để biết toàn bộ tham số.
 
+> **Đổi ngôn ngữ:** vào **⚙ Setting > Chung > Ngôn ngữ** chọn **Tiếng Việt /
+> 中文 / English**. Toàn bộ giao diện (cửa sổ chính, 2 panel, hộp thoại Setting,
+> nhật ký/trạng thái) đổi **ngay lập tức** sang ngôn ngữ đã chọn; lựa chọn được
+> lưu vào `config.json` (trường `"language"`) nên lần mở sau giữ nguyên. Bấm
+> **Hủy** trong hộp thoại sẽ hoàn nguyên về ngôn ngữ trước đó.
+
 ### Thử nhanh ở chế độ giả lập
 1. Bấm **Bắt đầu** ở 1 bên.
 2. Gõ SN vào ô *"Nhập SN giả lập"* → bấm **Quét (giả lập)**.
@@ -174,6 +180,7 @@ run.py                         điểm chạy (PySide6)
 config.example.json            mẫu cấu hình
 mes_uploader/
   config.py                    nạp/lưu cấu hình JSON, mã liệu, địa chỉ bit
+  i18n.py                      đa ngôn ngữ Việt/Trung/Anh (gettext, đổi nóng)
   material_import.py           nhập danh sách mã liệu từ file Excel/CSV
   data_reader.py               tìm file mới nhất + đọc dòng mới nhất (CSV/XLSX)
   mes_api.py                   dựng payload + POST (retry)
@@ -201,6 +208,7 @@ python -m tests.test_api_check            # GET kiểm tra SN + POST theo body
 python -m tests.test_worker_check_sn      # SN bị chặn -> chờ quét lại; SN tốt -> POST
 python -m tests.test_material_import      # nhập mã liệu từ Excel/CSV
 python -m tests.test_config_api           # API riêng theo loại đầu + migrate cấu hình cũ
+python -m tests.test_i18n                 # đa ngôn ngữ Việt/Trung/Anh + lưu 'language'
 ```
 
 ---

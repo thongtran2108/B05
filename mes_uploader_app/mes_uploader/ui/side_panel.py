@@ -21,8 +21,11 @@ from ..config import head_count
 from ..core.side_worker import ST_IDLE, ST_WAIT_SCAN, ST_RUNNING, SideWorker
 from ..hardware.plc_client import make_plc_client
 from ..hardware.scanner import SerialScanner
+from ..i18n import tr
 from .theme import GREEN, RED, AMBER, ELEV2, BORDER2, CAPTION
 
+# Cột bảng (chuỗi nguồn tiếng Việt = khóa dịch). Dùng len() để đếm cột và
+# tr() từng cột khi đặt nhãn header (xem _build_table / retranslate).
 TABLE_COLS = ["SN", "Loại", "Đầu", "Judge", "Thời gian", "MES", "Giá trị (Data01..N)"]
 MAX_TABLE_ROWS = 1000
 
@@ -44,7 +47,8 @@ class HeadProgress(QWidget):
         root.setSpacing(7)
 
         top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
-        cap = QLabel("TIẾN ĐỘ ĐẦU ĐO"); cap.setObjectName("caption")
+        self._cap = QLabel(tr("TIẾN ĐỘ ĐẦU ĐO")); self._cap.setObjectName("caption")
+        cap = self._cap
         self.lbl_count = QLabel("0 / 1")
         self.lbl_count.setStyleSheet("font-weight:700; color:#e6eaf2;")
         self.lbl_count.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -92,6 +96,9 @@ class HeadProgress(QWidget):
         self._done = max(0, min(int(done), total))
         self._refresh()
 
+    def retranslate(self):
+        self._cap.setText(tr("TIẾN ĐỘ ĐẦU ĐO"))
+
 
 class _EventBridge(QObject):
     """Cầu nối: phát sự kiện worker (luồng nền) -> slot ở luồng GUI."""
@@ -100,14 +107,15 @@ class _EventBridge(QObject):
 
 class SidePanel(QGroupBox):
     def __init__(self, side_key, cfg, parent=None):
-        title = "BÊN TRÁI · CCD1" if side_key == "left" else "BÊN PHẢI · CCD2"
-        super().__init__(title, parent)
+        super().__init__(self._title_for(side_key), parent)
         self.setObjectName("panelLeft" if side_key == "left" else "panelRight")
         self.side_key = side_key
         self.cfg = cfg
         self.worker = None
         self.scanner = None
         self._pending_mes = []          # các ô cột MES của SN đang chạy
+        self._cur_state = ST_IDLE       # trạng thái cuối (để dựng lại khi đổi ngôn ngữ)
+        self._plc_connected = None      # None = chưa biết, True/False = đã/ mất kết nối
 
         self._bold = QFont(); self._bold.setBold(True)
         self._bridge = _EventBridge()
@@ -115,6 +123,11 @@ class SidePanel(QGroupBox):
 
         self._build_ui()
         self._reload_projects()
+
+    @staticmethod
+    def _title_for(side_key):
+        return (tr("BÊN TRÁI · CCD1") if side_key == "left"
+                else tr("BÊN PHẢI · CCD2"))
 
     # ------------------------------------------------------------------ #
     #  Dựng widget                                                        #
@@ -128,21 +141,22 @@ class SidePanel(QGroupBox):
         sel = QHBoxLayout(); sel.setSpacing(14)
 
         proj_col = QVBoxLayout(); proj_col.setSpacing(6)
-        proj_cap = QLabel("CHUYÊN ÁN"); proj_cap.setObjectName("caption")
+        self._cap_project = QLabel(tr("CHUYÊN ÁN")); self._cap_project.setObjectName("caption")
         self.cbo_project = QComboBox()
         self.cbo_project.setMinimumWidth(120)
-        proj_col.addWidget(proj_cap); proj_col.addWidget(self.cbo_project)
+        proj_col.addWidget(self._cap_project); proj_col.addWidget(self.cbo_project)
         sel.addLayout(proj_col, 1)
 
         mat_col = QVBoxLayout(); mat_col.setSpacing(6)
-        mat_cap = QLabel("MÃ LIỆU"); mat_cap.setObjectName("caption")
+        self._cap_material = QLabel(tr("MÃ LIỆU")); self._cap_material.setObjectName("caption")
         self.cbo_material = QComboBox()
         self.cbo_material.setMinimumWidth(120)
-        mat_col.addWidget(mat_cap); mat_col.addWidget(self.cbo_material)
+        mat_col.addWidget(self._cap_material); mat_col.addWidget(self.cbo_material)
         sel.addLayout(mat_col, 1)
 
         type_col = QVBoxLayout(); type_col.setSpacing(6)
-        type_cap = QLabel("LOẠI ĐẦU"); type_cap.setObjectName("caption")
+        self._cap_type = QLabel(tr("LOẠI ĐẦU")); self._cap_type.setObjectName("caption")
+        type_cap = self._cap_type
         seg_group = QFrame(); seg_group.setObjectName("segGroup")
         seg_lay = QHBoxLayout(seg_group)
         seg_lay.setContentsMargins(3, 3, 3, 3); seg_lay.setSpacing(3)
@@ -167,12 +181,14 @@ class SidePanel(QGroupBox):
         srow = QHBoxLayout(); srow.setSpacing(9)
         plc_chip = QFrame(); plc_chip.setObjectName("chip")
         pcl = QHBoxLayout(plc_chip); pcl.setContentsMargins(11, 7, 13, 7)
-        self.lbl_plc = QLabel("● PLC: --"); self.lbl_plc.setObjectName("chipText")
+        self.lbl_plc = QLabel(); self.lbl_plc.setObjectName("chipText")
         pcl.addWidget(self.lbl_plc)
         state_chip = QFrame(); state_chip.setObjectName("chip")
         scl = QHBoxLayout(state_chip); scl.setContentsMargins(11, 7, 13, 7)
-        self.lbl_state = QLabel("Trạng thái: chưa bật"); self.lbl_state.setObjectName("chipText")
+        self.lbl_state = QLabel(); self.lbl_state.setObjectName("chipText")
         scl.addWidget(self.lbl_state)
+        self._render_plc()              # "● PLC: --"
+        self._render_state()            # "Trạng thái: chưa bật"
         srow.addWidget(plc_chip)
         srow.addStretch(1)
         srow.addWidget(state_chip)
@@ -182,7 +198,8 @@ class SidePanel(QGroupBox):
         sn_card = QFrame(); sn_card.setObjectName("snCard")
         sc = QVBoxLayout(sn_card)
         sc.setContentsMargins(14, 12, 14, 13); sc.setSpacing(3)
-        cap = QLabel("SERIAL NUMBER"); cap.setObjectName("caption")
+        self._cap_sn = QLabel(tr("SERIAL NUMBER")); self._cap_sn.setObjectName("caption")
+        cap = self._cap_sn
         cap.setAlignment(Qt.AlignCenter)
         self.lbl_sn = QLabel("——"); self.lbl_sn.setObjectName("snValue")
         self.lbl_sn.setAlignment(Qt.AlignCenter)
@@ -205,8 +222,8 @@ class SidePanel(QGroupBox):
 
         # --- Nút Bắt đầu / Dừng ---
         brow = QHBoxLayout()
-        self.btn_start = QPushButton("▶  Bắt đầu"); self.btn_start.setObjectName("startBtn")
-        self.btn_stop = QPushButton("■  Dừng"); self.btn_stop.setObjectName("stopBtn")
+        self.btn_start = QPushButton("▶  " + tr("Bắt đầu")); self.btn_start.setObjectName("startBtn")
+        self.btn_stop = QPushButton("■  " + tr("Dừng")); self.btn_stop.setObjectName("stopBtn")
         self.btn_stop.setEnabled(False)
         self.btn_start.clicked.connect(self._on_start)
         self.btn_stop.clicked.connect(self._on_stop)
@@ -217,9 +234,9 @@ class SidePanel(QGroupBox):
         self.sim_box = QFrame()
         sbl = QHBoxLayout(self.sim_box)
         sbl.setContentsMargins(0, 0, 0, 0)
-        self.txt_sn = QLineEdit(); self.txt_sn.setPlaceholderText("Nhập SN giả lập…")
-        self.btn_scan = QPushButton("Quét (giả lập)"); self.btn_scan.setObjectName("ghostBtn")
-        self.btn_trig = QPushButton("Tín hiệu PLC (giả lập)"); self.btn_trig.setObjectName("ghostBtn")
+        self.txt_sn = QLineEdit(); self.txt_sn.setPlaceholderText(tr("Nhập SN giả lập…"))
+        self.btn_scan = QPushButton(tr("Quét (giả lập)")); self.btn_scan.setObjectName("ghostBtn")
+        self.btn_trig = QPushButton(tr("Tín hiệu PLC (giả lập)")); self.btn_trig.setObjectName("ghostBtn")
         self.btn_scan.clicked.connect(self._on_sim_scan)
         self.btn_trig.clicked.connect(self._on_sim_trigger)
         self.txt_sn.returnPressed.connect(self._on_sim_scan)
@@ -235,8 +252,9 @@ class SidePanel(QGroupBox):
         tbox = QWidget(); tlay = QVBoxLayout(tbox)
         tlay.setContentsMargins(0, 0, 0, 0); tlay.setSpacing(4)
         thead = QHBoxLayout()
-        tcap = QLabel("BẢNG DỮ LIỆU"); tcap.setObjectName("caption")
-        self.btn_clear = QPushButton("Xóa bảng"); self.btn_clear.setObjectName("ghostBtn")
+        self._cap_table = QLabel(tr("BẢNG DỮ LIỆU")); self._cap_table.setObjectName("caption")
+        tcap = self._cap_table
+        self.btn_clear = QPushButton(tr("Xóa bảng")); self.btn_clear.setObjectName("ghostBtn")
         self.btn_clear.setFixedWidth(96)
         self.btn_clear.clicked.connect(self._clear_table)
         thead.addWidget(tcap); thead.addStretch(1); thead.addWidget(self.btn_clear)
@@ -247,7 +265,8 @@ class SidePanel(QGroupBox):
 
         lbox = QWidget(); llay = QVBoxLayout(lbox)
         llay.setContentsMargins(0, 0, 0, 0); llay.setSpacing(4)
-        lcap = QLabel("NHẬT KÝ"); lcap.setObjectName("caption")
+        self._cap_log = QLabel(tr("NHẬT KÝ")); self._cap_log.setObjectName("caption")
+        lcap = self._cap_log
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(800)
@@ -261,7 +280,7 @@ class SidePanel(QGroupBox):
 
     def _build_table(self):
         t = QTableWidget(0, len(TABLE_COLS))
-        t.setHorizontalHeaderLabels(TABLE_COLS)
+        t.setHorizontalHeaderLabels([tr(c) for c in TABLE_COLS])
         t.verticalHeader().setVisible(False)
         t.setAlternatingRowColors(True)
         t.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -294,9 +313,9 @@ class SidePanel(QGroupBox):
             val = m.project or ""
             if val not in seen:
                 seen.add(val)
-                items.append((val, val if val else PROJECT_DEFAULT_LABEL))
+                items.append((val, val if val else tr(PROJECT_DEFAULT_LABEL)))
         if not items:
-            items.append(("", PROJECT_DEFAULT_LABEL))
+            items.append(("", tr(PROJECT_DEFAULT_LABEL)))
         return items
 
     def _current_project(self):
@@ -376,11 +395,11 @@ class SidePanel(QGroupBox):
         material = self._current_material()
         head_type = self._current_type()
         if material is None:
-            self._append_log("Chưa chọn mã liệu. Vào Setting > Mã liệu để thêm.")
+            self._append_log(tr("Chưa chọn mã liệu. Vào Setting > Mã liệu để thêm."))
             return
         n = head_count(material, head_type)
         if n <= 0:
-            self._append_log("Mã liệu '%s' không có đầu %s." % (material.name, head_type))
+            self._append_log(tr("Mã liệu '%s' không có đầu %s.") % (material.name, head_type))
             return
 
         side_cfg = getattr(self.cfg, self.side_key)
@@ -407,7 +426,8 @@ class SidePanel(QGroupBox):
         self.btn_stop.setEnabled(False)
         self.cbo_project.setEnabled(True)
         self.cbo_material.setEnabled(True)
-        self.lbl_state.setText("Trạng thái: đã dừng")
+        self._cur_state = "STOPPED"
+        self._render_state()
 
     def stop_worker(self):
         if self.scanner:
@@ -437,14 +457,14 @@ class SidePanel(QGroupBox):
         if not sn:
             return
         if not self.worker:
-            self._append_log("Chưa bấm 'Bắt đầu'.")
+            self._append_log(tr("Chưa bấm 'Bắt đầu'."))
             return
         self.worker.submit_sn(sn)
         self.txt_sn.clear()
 
     def _on_sim_trigger(self):
         if not self.worker:
-            self._append_log("Chưa bấm 'Bắt đầu'.")
+            self._append_log(tr("Chưa bấm 'Bắt đầu'."))
             return
         self.worker.simulate_trigger()
 
@@ -463,7 +483,8 @@ class SidePanel(QGroupBox):
         if etype == "log":
             self._append_log(data.get("text", ""))
         elif etype == "status":
-            self.lbl_state.setText("Trạng thái: " + data.get("text", ""))
+            # text đã được worker dịch sẵn theo ngôn ngữ hiện tại khi phát sự kiện
+            self.lbl_state.setText("%s: %s" % (tr("Trạng thái"), data.get("text", "")))
         elif etype == "sn":
             self.lbl_sn.setText(data.get("sn", "——"))
             self._set_result_style(None)
@@ -484,10 +505,8 @@ class SidePanel(QGroupBox):
         elif etype == "plc":
             self._set_plc(data.get("connected", False))
         elif etype == "state":
-            st = data.get("state", "")
-            label = {ST_IDLE: "chưa bật", ST_WAIT_SCAN: "chờ quét mã",
-                     ST_RUNNING: "đang chạy"}.get(st, st)
-            self.lbl_state.setText("Trạng thái: " + label)
+            self._cur_state = data.get("state", "")
+            self._render_state()
 
     # ------------------------------------------------------------------ #
     #  Bảng dữ liệu                                                       #
@@ -521,7 +540,7 @@ class SidePanel(QGroupBox):
             if c in (1, 2, 3, 5):
                 it.setTextAlignment(Qt.AlignCenter)
             if c == 6:
-                it.setToolTip("%d giá trị:\n%s" % (len(vals), vals_str))
+                it.setToolTip(tr("%d giá trị:\n%s") % (len(vals), vals_str))
             t.setItem(r, c, it)
 
         jitem = t.item(r, 3)
@@ -543,23 +562,23 @@ class SidePanel(QGroupBox):
             it.setText("✔" if ok else "✗")
             it.setTextAlignment(Qt.AlignCenter)
             it.setForeground(QColor(GREEN if ok else AMBER))
-            it.setToolTip("Đã gửi MES (result=%s)" % result if ok
-                          else "Gửi MES lỗi — xem nhật ký")
+            it.setToolTip(tr("Đã gửi MES (result=%s)") % result if ok
+                          else tr("Gửi MES lỗi — xem nhật ký"))
         self._pending_mes = []
 
     def _show_error(self, d):
         """Hiển thị lỗi thiếu dữ liệu: banner đỏ + 1 dòng LỖI trong bảng."""
         msg = str(d.get("message", "")).replace("\n", " ")
-        self.lbl_result.setText("LỖI DỮ LIỆU")
+        self.lbl_result.setText(tr("LỖI DỮ LIỆU"))
         self.lbl_result.setStyleSheet(
             "background:#a3282d; color:#ffecec; border-radius:10px; font-weight:800;")
-        self.lbl_state.setText("Trạng thái: LỖI — " + msg)
+        self.lbl_state.setText("%s: %s — %s" % (tr("Trạng thái"), tr("LỖI"), msg))
 
         t = self.table
         r = t.rowCount(); t.insertRow(r)
         texts = [str(d.get("sn", "")), str(d.get("head_type", "")),
                  "%d/%d" % (d.get("index", 0), d.get("total", 0)),
-                 "LỖI", "—", "—", msg]
+                 tr("LỖI"), "—", "—", msg]
         for c, txt in enumerate(texts):
             it = QTableWidgetItem(txt)
             if c in (1, 2, 3, 5):
@@ -578,13 +597,13 @@ class SidePanel(QGroupBox):
         sn = str(d.get("sn", ""))
         msg = str(d.get("message", "")).replace("\n", " ")
         self.lbl_sn.setText(sn)
-        self.lbl_result.setText("SN BỊ CHẶN")
+        self.lbl_result.setText(tr("SN BỊ CHẶN"))
         self.lbl_result.setStyleSheet(
             "background:#9c6b1f; color:#fff; border-radius:10px; font-weight:800;")
 
         t = self.table
         r = t.rowCount(); t.insertRow(r)
-        texts = [sn, "—", "—", "CHẶN", "—", "—", msg]
+        texts = [sn, "—", "—", tr("CHẶN"), "—", "—", msg]
         for c, txt in enumerate(texts):
             it = QTableWidgetItem(txt)
             if c in (1, 2, 3, 5):
@@ -616,11 +635,19 @@ class SidePanel(QGroupBox):
         color = "#9aa6b6"      # mặc định
         weight = "400"
 
+        # Từ khóa đa ngôn ngữ (Việt / Anh / Trung) để tô màu nhật ký dù đang ở
+        # ngôn ngữ nào. So khớp theo low.lower() nên dùng chữ thường.
         red_kw = ("lỗi", "that bai", "thất bại", "[fail]", "fail", "✗",
                   "không hợp lệ", "mất kết nối", "error", "exception",
-                  "timeout", "thiếu", "huỷ", "hủy")
-        amber_kw = ("chặn", "gửi lỗi", "retry", "thử lại", "cảnh báo", "bỏ qua")
-        green_kw = ("thành công", "✓", "hoàn thành", "hợp lệ")
+                  "timeout", "thiếu", "huỷ", "hủy",
+                  "invalid", "disconnected", "failed", "cancel",
+                  "错误", "失败", "无效", "连接断开", "取消")
+        amber_kw = ("chặn", "gửi lỗi", "retry", "thử lại", "cảnh báo", "bỏ qua",
+                    "blocked", "warning", "skip",
+                    "拦截", "重试", "警告", "跳过", "已忽略")
+        green_kw = ("thành công", "✓", "hoàn thành", "hợp lệ",
+                    "success", "completed", "valid", "accepted",
+                    "成功", "完成", "有效", "接收成功")
 
         is_ng = bool(_re.search(r"\bNG\b", line))
         is_ok = bool(_re.search(r"\bOK\b", line)) or any(k in low for k in green_kw)
@@ -637,12 +664,27 @@ class SidePanel(QGroupBox):
         return '<span style="color:%s; font-weight:%s;">%s</span>' % (color, weight, safe)
 
     def _set_plc(self, connected):
-        if connected:
-            self.lbl_plc.setText("● PLC: kết nối")
+        self._plc_connected = connected
+        self._render_plc()
+
+    def _render_plc(self):
+        """Dựng lại chip PLC theo trạng thái đã lưu (để đổi ngôn ngữ được)."""
+        if self._plc_connected is None:
+            self.lbl_plc.setText("● PLC: --")
+            self.lbl_plc.setStyleSheet("")
+        elif self._plc_connected:
+            self.lbl_plc.setText("● PLC: " + tr("kết nối"))
             self.lbl_plc.setStyleSheet("color: %s; font-size:12px; font-weight:600;" % GREEN)
         else:
-            self.lbl_plc.setText("● PLC: mất kết nối")
+            self.lbl_plc.setText("● PLC: " + tr("mất kết nối"))
             self.lbl_plc.setStyleSheet("color: %s; font-size:12px; font-weight:600;" % RED)
+
+    def _render_state(self):
+        """Dựng lại chip trạng thái theo trạng thái đã lưu (mapped)."""
+        mapping = {ST_IDLE: "chưa bật", ST_WAIT_SCAN: "chờ quét mã",
+                   ST_RUNNING: "đang chạy", "STOPPED": "đã dừng"}
+        word = mapping.get(self._cur_state, self._cur_state)
+        self.lbl_state.setText("%s: %s" % (tr("Trạng thái"), tr(word)))
 
     def _set_result_style(self, ok):
         base = "border-radius:10px; font-weight:800;"
@@ -660,9 +702,37 @@ class SidePanel(QGroupBox):
     def _show_result(self, result, ok):
         res = str(result).upper()
         if not ok:                            # gửi MES lỗi -> viền hổ phách
-            self.lbl_result.setText(res + " (gửi lỗi)")
+            self.lbl_result.setText(res + " " + tr("(gửi lỗi)"))
             self.lbl_result.setStyleSheet(
                 "background:#9c6b1f; color:#fff; border-radius:10px; font-weight:800;")
         else:
             self.lbl_result.setText("OK" if res == "OK" else "NG")
             self._set_result_style(res == "OK")
+
+    # ------------------------------------------------------------------ #
+    #  Đổi ngôn ngữ                                                       #
+    # ------------------------------------------------------------------ #
+    def retranslate(self):
+        """Cập nhật lại văn bản tĩnh của panel khi đổi ngôn ngữ.
+
+        Các dòng đã ghi trong bảng/nhật ký là lịch sử nên giữ nguyên; nội dung
+        phát sinh mới sẽ theo ngôn ngữ vừa chọn.
+        """
+        self.setTitle(self._title_for(self.side_key))
+        self._cap_project.setText(tr("CHUYÊN ÁN"))
+        self._cap_material.setText(tr("MÃ LIỆU"))
+        self._cap_type.setText(tr("LOẠI ĐẦU"))
+        self._cap_sn.setText(tr("SERIAL NUMBER"))
+        self._cap_table.setText(tr("BẢNG DỮ LIỆU"))
+        self._cap_log.setText(tr("NHẬT KÝ"))
+        self.progress.retranslate()
+        self.btn_start.setText("▶  " + tr("Bắt đầu"))
+        self.btn_stop.setText("■  " + tr("Dừng"))
+        self.btn_scan.setText(tr("Quét (giả lập)"))
+        self.btn_trig.setText(tr("Tín hiệu PLC (giả lập)"))
+        self.btn_clear.setText(tr("Xóa bảng"))
+        self.txt_sn.setPlaceholderText(tr("Nhập SN giả lập…"))
+        self.table.setHorizontalHeaderLabels([tr(c) for c in TABLE_COLS])
+        self._render_plc()
+        self._render_state()
+        self._reload_projects()         # cập nhật nhãn "(Chung)" của chuyên án

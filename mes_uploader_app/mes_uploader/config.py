@@ -129,6 +129,7 @@ class PathConfig:
 # ---------------------------------------------------------------------- #
 @dataclass
 class AppConfig:
+    language: str = "vi"             # ngôn ngữ giao diện: "vi" | "zh" | "en"
     simulation: bool = True          # True = chạy giả lập, không cần phần cứng
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
     handshake_timeout_s: float = 10.0  # thời gian chờ PLC nhả trigger sau khi done

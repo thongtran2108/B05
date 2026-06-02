@@ -29,6 +29,7 @@ import time
 from .. import data_reader, mes_api
 from ..config import side_addresses, head_count, head_api
 from ..hardware.plc_client import MockPlcClient
+from ..i18n import tr
 
 
 # Các trạng thái
@@ -89,7 +90,7 @@ class SideWorker:
                 self._material = material
                 self._head_type = head_type
         if running:
-            self._emit("log", text="Đang chạy — không đổi được lựa chọn.")
+            self._emit("log", text=tr("Đang chạy — không đổi được lựa chọn."))
 
     def arm(self, material, head_type):
         self._drain_sn_queue()
@@ -102,14 +103,14 @@ class SideWorker:
             self._readings = []
             self._runs = 0
         self._emit("state", state=ST_WAIT_SCAN)
-        self._emit("status", text="Đã bật. Chờ quét mã (loại %s)." % head_type)
+        self._emit("status", text=tr("Đã bật. Chờ quét mã (loại %s).") % head_type)
 
     def disarm(self):
         with self._lock:
             self._armed = False
             self._state = ST_IDLE
         self._emit("state", state=ST_IDLE)
-        self._emit("status", text="Đã dừng.")
+        self._emit("status", text=tr("Đã dừng."))
 
     def submit_sn(self, sn):
         sn = (sn or "").strip()
@@ -120,7 +121,7 @@ class SideWorker:
         if ready:
             self._sn_queue.put(sn)
         else:
-            self._emit("log", text="Bỏ qua mã '%s' (chưa sẵn sàng quét)." % sn)
+            self._emit("log", text=tr("Bỏ qua mã '%s' (chưa sẵn sàng quét).") % sn)
 
     def _drain_sn_queue(self):
         try:
@@ -196,7 +197,7 @@ class SideWorker:
         total = head_count(material, head_type)
         mat_name = material.name if material else "?"
         if total <= 0:
-            self._emit("log", text="Mã liệu '%s' không có đầu %s — bỏ qua SN %s."
+            self._emit("log", text=tr("Mã liệu '%s' không có đầu %s — bỏ qua SN %s.")
                        % (mat_name, head_type, sn))
             return
 
@@ -215,9 +216,9 @@ class SideWorker:
         self._emit("state", state=ST_RUNNING)
         self._emit("sn", sn=sn)
         self._emit("progress", done=0, total=total)
-        self._emit("status", text="SN %s — chờ tín hiệu PLC (0/%d đầu %s)"
+        self._emit("status", text=tr("SN %s — chờ tín hiệu PLC (0/%d đầu %s)")
                    % (sn, total, head_type))
-        self._emit("log", text="── Bắt đầu SN %s | mã liệu %s | %d đầu %s ──"
+        self._emit("log", text=tr("── Bắt đầu SN %s | mã liệu %s | %d đầu %s ──")
                    % (sn, mat_name, total, head_type))
 
     def _check_sn(self, sn, head_type):
@@ -227,36 +228,36 @@ class SideWorker:
         if not head.check_enabled:
             return True
         if not (head.check_url_prefix or head.check_url_suffix):
-            self._emit("log", text="  (Bỏ qua kiểm tra SN: chưa cấu hình URL GET cho đầu %s)"
+            self._emit("log", text=tr("  (Bỏ qua kiểm tra SN: chưa cấu hình URL GET cho đầu %s)")
                        % head_type)
             return True
-        self._emit("log", text="Kiểm tra SN %s qua GET (API đầu %s)…" % (sn, head_type))
+        self._emit("log", text=tr("Kiểm tra SN %s qua GET (API đầu %s)…") % (sn, head_type))
         ok, msg = mes_api.check_sn(
             sn, head.check_url_prefix, head.check_url_suffix,
             ok_contains=head.check_ok_contains, timeout=api.timeout,
             verify_ssl=api.verify_ssl, use_proxy=api.use_proxy, proxy=api.proxy,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
-            self._emit("log", text="  SN hợp lệ — cho phép chạy.")
+            self._emit("log", text=tr("  SN hợp lệ — cho phép chạy."))
             return True
-        self._emit("log", text="  [CHẶN] SN %s không hợp lệ: %s" % (sn, msg))
-        self._emit("log", text="  → Vui lòng quét mã khác.")
+        self._emit("log", text=tr("  [CHẶN] SN %s không hợp lệ: %s") % (sn, msg))
+        self._emit("log", text=tr("  → Vui lòng quét mã khác."))
         self._emit("sn_rejected", sn=sn, message=msg)
-        self._emit("status", text="SN %s bị chặn: %s" % (sn, msg))
+        self._emit("status", text=tr("SN %s bị chặn: %s") % (sn, msg))
         return False
 
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:
             idx = self._runs + 1
             total = self._total
-        self._emit("log", text="Nhận tín hiệu chạy — đầu %d/%d" % (idx, total))
+        self._emit("log", text=tr("Nhận tín hiệu chạy — đầu %d/%d") % (idx, total))
 
         # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
         try:
             reading = data_reader.get_latest_for_side(
                 self.cfg.paths, side_cfg, head_type,
                 require_today=self.cfg.paths.require_today)
-            self._emit("log", text="  Đọc %s: judge=%s, %d giá trị"
+            self._emit("log", text=tr("  Đọc %s: judge=%s, %d giá trị")
                        % (os.path.basename(reading["file"]),
                           reading["judge"], len(reading["values"])))
         except Exception as ex:              # noqa: BLE001
@@ -292,8 +293,8 @@ class SideWorker:
         Vẫn nhả handshake với PLC để dây chuyền không bị treo; thao tác viên
         thấy lỗi trên giao diện và xử lý (vd file ngày hôm nay chưa được xuất).
         """
-        self._emit("log", text="  [LỖI] %s" % message)
-        self._emit("log", text="  → Hủy SN %s, KHÔNG tải lên MES. Vui lòng kiểm tra dữ liệu."
+        self._emit("log", text=tr("  [LỖI] %s") % message)
+        self._emit("log", text=tr("  → Hủy SN %s, KHÔNG tải lên MES. Vui lòng kiểm tra dữ liệu.")
                    % sn)
         self._emit("error", sn=sn, head_type=head_type, index=index,
                    total=total, message=message)
@@ -307,7 +308,7 @@ class SideWorker:
             self._readings = []
             self._runs = 0
         self._emit("state", state=ST_WAIT_SCAN)
-        self._emit("status", text="LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo."
+        self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
 
     def _handshake_done(self, trig, done):
@@ -333,7 +334,7 @@ class SideWorker:
         payload = mes_api.build_payload(
             sn, readings, api.data_format,
             project=project, material=material, measuring_head=head_type)
-        self._emit("log", text="Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s"
+        self._emit("log", text=tr("Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s")
                    % (len(readings), head_type, payload["sn"], payload["result"]))
         ok, code, text = mes_api.post_payload(
             head.url, payload,
@@ -343,9 +344,9 @@ class SideWorker:
             ok_contains=head.post_ok_contains,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:
-            self._emit("log", text="  [OK] MES nhận OK (HTTP %s)" % code)
+            self._emit("log", text=tr("  [OK] MES nhận OK (HTTP %s)") % code)
         else:
-            self._emit("log", text="  [FAIL] MES THẤT BẠI: %s"
+            self._emit("log", text=tr("  [FAIL] MES THẤT BẠI: %s")
                        % mes_api.short_error(code, text))
         self._emit("result", sn=sn, result=payload["result"], ok=ok)
 
@@ -355,7 +356,7 @@ class SideWorker:
             self._readings = []
             self._runs = 0
         self._emit("state", state=ST_WAIT_SCAN)
-        self._emit("status", text="Hoàn tất SN %s. Chờ quét mã tiếp theo." % sn)
+        self._emit("status", text=tr("Hoàn tất SN %s. Chờ quét mã tiếp theo.") % sn)
 
     # ------------------------------------------------------------------ #
     #  Tiện ích PLC + hàng đợi SN                                         #
@@ -367,17 +368,17 @@ class SideWorker:
             except Exception:                # noqa: BLE001
                 pass
             self._emit("plc", connected=True)
-            self._emit("log", text="Chế độ GIẢ LẬP — không cần PLC/scan thật.")
+            self._emit("log", text=tr("Chế độ GIẢ LẬP — không cần PLC/scan thật."))
             return
         try:
             self.plc.connect()
             self._emit("plc", connected=True)
-            self._emit("log", text="PLC kết nối OK (%s:%s)."
+            self._emit("log", text=tr("PLC kết nối OK (%s:%s).")
                        % (getattr(self.plc, "ip", "?"),
                           getattr(self.plc, "port", "?")))
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text="Không kết nối được PLC: %s" % ex)
+            self._emit("log", text=tr("Không kết nối được PLC: %s") % ex)
 
     def _safe_read_bit(self, device):
         try:
@@ -385,7 +386,7 @@ class SideWorker:
             return 1 if v else 0
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text="Lỗi đọc PLC %s: %s" % (device, ex))
+            self._emit("log", text=tr("Lỗi đọc PLC %s: %s") % (device, ex))
             try:                              # thử kết nối lại
                 self.plc.connect()
                 self._emit("plc", connected=True)
@@ -399,7 +400,7 @@ class SideWorker:
             return True
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text="Lỗi ghi PLC %s: %s" % (device, ex))
+            self._emit("log", text=tr("Lỗi ghi PLC %s: %s") % (device, ex))
             return False
 
     def _poll_sn(self):

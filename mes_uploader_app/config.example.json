@@ -1,4 +1,5 @@
 {
+  "language": "vi",
   "simulation": true,
   "poll_interval_ms": 200,
   "handshake_timeout_s": 10.0,

@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import save_config
+from ..i18n import tr, set_language, add_listener, remove_listener
 from .side_panel import SidePanel
 from .settings_dialog import SettingsDialog
 from .theme import GREEN, AMBER
@@ -18,7 +19,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.cfg = cfg
         self.config_path = config_path
-        self.setWindowTitle("MES Uploader — Tải nội dung đo lên MES")
+        set_language(getattr(cfg, "language", "vi"))   # áp dụng ngôn ngữ đã lưu
+        self.setWindowTitle(tr("MES Uploader — Tải nội dung đo lên MES"))
         self.resize(1280, 860)
         self.setMinimumSize(1040, 720)
 
@@ -39,6 +41,7 @@ class MainWindow(QMainWindow):
         root.addLayout(panels, 1)
 
         self._update_mode_label()
+        add_listener(self.retranslate)   # đổi ngôn ngữ -> cập nhật toàn bộ văn bản
 
     def _build_header(self):
         header = QFrame(); header.setObjectName("header")
@@ -52,8 +55,9 @@ class MainWindow(QMainWindow):
 
         titles = QVBoxLayout(); titles.setSpacing(1)
         t = QLabel("MES UPLOADER"); t.setObjectName("appTitle")
-        sub = QLabel("Tải nội dung đo lên hệ thống MES"); sub.setObjectName("muted")
-        titles.addWidget(t); titles.addWidget(sub)
+        self.lbl_subtitle = QLabel(tr("Tải nội dung đo lên hệ thống MES"))
+        self.lbl_subtitle.setObjectName("muted")
+        titles.addWidget(t); titles.addWidget(self.lbl_subtitle)
         h.addLayout(titles)
         h.addStretch(1)
 
@@ -67,7 +71,8 @@ class MainWindow(QMainWindow):
 
         self.lbl_mode = QLabel(); self.lbl_mode.setObjectName("badge")
         h.addWidget(self.lbl_mode)
-        self.btn_settings = QPushButton("⚙  Setting"); self.btn_settings.setObjectName("settingsBtn")
+        self.btn_settings = QPushButton("⚙  " + tr("Setting"))
+        self.btn_settings.setObjectName("settingsBtn")
         self.btn_settings.clicked.connect(self._open_settings)
         h.addWidget(self.btn_settings)
         return header
@@ -82,10 +87,21 @@ class MainWindow(QMainWindow):
     def _update_mode_label(self):
         if self.cfg.simulation:
             self.lbl_mode.setText(
-                '<span style="color:%s">●</span>&nbsp; Chế độ GIẢ LẬP' % AMBER)
+                '<span style="color:%s">●</span>&nbsp; %s'
+                % (AMBER, tr("Chế độ GIẢ LẬP")))
         else:
             self.lbl_mode.setText(
-                '<span style="color:%s">●</span>&nbsp; Chế độ THẬT (PLC + scan)' % GREEN)
+                '<span style="color:%s">●</span>&nbsp; %s'
+                % (GREEN, tr("Chế độ THẬT (PLC + scan)")))
+
+    def retranslate(self):
+        """Cập nhật lại toàn bộ văn bản tĩnh khi đổi ngôn ngữ."""
+        self.setWindowTitle(tr("MES Uploader — Tải nội dung đo lên MES"))
+        self.lbl_subtitle.setText(tr("Tải nội dung đo lên hệ thống MES"))
+        self.btn_settings.setText("⚙  " + tr("Setting"))
+        self._update_mode_label()
+        self.left.retranslate()
+        self.right.retranslate()
 
     def _open_settings(self):
         dlg = SettingsDialog(self.cfg, self)
@@ -94,16 +110,17 @@ class MainWindow(QMainWindow):
             try:
                 save_config(self.cfg, self.config_path)
             except Exception as ex:          # noqa: BLE001
-                QMessageBox.warning(self, "Lưu cấu hình",
-                                    "Không lưu được file cấu hình:\n%s" % ex)
+                QMessageBox.warning(self, tr("Lưu cấu hình"),
+                                    tr("Không lưu được file cấu hình:\n%s") % ex)
             self.left.apply_config(self.cfg)
             self.right.apply_config(self.cfg)
             self._update_mode_label()
             QMessageBox.information(
-                self, "Setting",
-                "Đã lưu cấu hình. Bấm 'Bắt đầu' lại ở mỗi bên để áp dụng.")
+                self, tr("Setting"),
+                tr("Đã lưu cấu hình. Bấm 'Bắt đầu' lại ở mỗi bên để áp dụng."))
 
     def closeEvent(self, event):
+        remove_listener(self.retranslate)
         self.left.stop_worker()
         self.right.stop_worker()
         super().closeEvent(event)

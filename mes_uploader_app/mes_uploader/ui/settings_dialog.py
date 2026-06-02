@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import AppConfig, MaterialConfig
+from ..i18n import tr, set_language, current_language, available_languages
 from ..material_import import parse_materials
 
 
@@ -33,73 +34,126 @@ def _section(title):
 class SettingsDialog(QDialog):
     def __init__(self, cfg, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Setting")
         self.resize(560, 520)
         self.cfg = copy.deepcopy(cfg)     # làm việc trên bản sao
+        self._orig_lang = current_language()   # để hoàn nguyên nếu bấm Hủy
 
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
+        self._build_tabs()
 
-        self.tabs.addTab(self._tab_general(), "Chung")
-        self.tabs.addTab(self._tab_plc(), "PLC")
-        self.tabs.addTab(self._tab_api(), "API MES")
-        self.tabs.addTab(self._tab_side("left"), "Bên trái")
-        self.tabs.addTab(self._tab_side("right"), "Bên phải")
-        self.tabs.addTab(self._tab_materials(), "Mã liệu")
+        self.btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.btns.accepted.connect(self._on_accept)
+        self.btns.rejected.connect(self.reject)
+        layout.addWidget(self.btns)
+        self._apply_static_texts()
 
-        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(self._on_accept)
-        btns.rejected.connect(self.reject)
-        layout.addWidget(btns)
+    # ------------------------------------------------------------------ #
+    #  Dựng / đổi ngôn ngữ                                                #
+    # ------------------------------------------------------------------ #
+    def _build_tabs(self):
+        """Dựng (hoặc dựng lại) toàn bộ tab theo ngôn ngữ hiện tại.
+
+        Khi đổi ngôn ngữ, các chỉnh sửa đang nhập đã được _collect() lưu vào
+        self.cfg trước đó nên dựng lại từ self.cfg sẽ không mất dữ liệu.
+        """
+        cur = self.tabs.currentIndex()
+        self.tabs.blockSignals(True)
+        while self.tabs.count():
+            w = self.tabs.widget(0)
+            self.tabs.removeTab(0)
+            w.deleteLater()
+        self.tabs.addTab(self._tab_general(), tr("Chung"))
+        self.tabs.addTab(self._tab_plc(), tr("PLC"))
+        self.tabs.addTab(self._tab_api(), tr("API MES"))
+        self.tabs.addTab(self._tab_side("left"), tr("Bên trái"))
+        self.tabs.addTab(self._tab_side("right"), tr("Bên phải"))
+        self.tabs.addTab(self._tab_materials(), tr("Mã liệu"))
+        if 0 <= cur < self.tabs.count():
+            self.tabs.setCurrentIndex(cur)
+        self.tabs.blockSignals(False)
+
+    def _apply_static_texts(self):
+        """Văn bản nằm ngoài tab (tiêu đề cửa sổ + nút OK/Hủy)."""
+        self.setWindowTitle(tr("Setting"))
+        self.btns.button(QDialogButtonBox.Ok).setText(tr("OK"))
+        self.btns.button(QDialogButtonBox.Cancel).setText(tr("Hủy"))
+
+    def _on_language_changed(self, *_):
+        code = self.cbo_lang.currentData()
+        if not code or code == current_language():
+            return
+        self._collect()                 # giữ lại chỉnh sửa đang nhập
+        set_language(code)              # cập nhật cửa sổ chính + panel (qua listener)
+        self._build_tabs()              # dựng lại dialog theo ngôn ngữ mới
+        self._apply_static_texts()
+
+    def reject(self):
+        # Hoàn nguyên ngôn ngữ nếu người dùng đã xem trước rồi bấm Hủy.
+        if current_language() != self._orig_lang:
+            set_language(self._orig_lang)
+        super().reject()
 
     # ------------------------------------------------------------------ #
     #  Tab Chung                                                          #
     # ------------------------------------------------------------------ #
     def _tab_general(self):
         w = QWidget(); form = QFormLayout(w)
-        self.chk_sim = QCheckBox("Chế độ giả lập (không cần PLC / tay scan)")
+
+        # --- Chọn ngôn ngữ giao diện (Việt / Trung / Anh) ---
+        self.cbo_lang = QComboBox()
+        for code, label in available_languages():
+            self.cbo_lang.addItem(label, code)
+        idx = self.cbo_lang.findData(getattr(self.cfg, "language", "vi"))
+        if idx >= 0:
+            self.cbo_lang.setCurrentIndex(idx)
+        # nối tín hiệu SAU khi đặt sẵn mục hiện tại để không tự kích hoạt khi dựng
+        self.cbo_lang.currentIndexChanged.connect(self._on_language_changed)
+        form.addRow(tr("Ngôn ngữ:"), self.cbo_lang)
+
+        self.chk_sim = QCheckBox(tr("Chế độ giả lập (không cần PLC / tay scan)"))
         self.chk_sim.setChecked(self.cfg.simulation)
         form.addRow(self.chk_sim)
 
         self.spn_poll = QSpinBox(); self.spn_poll.setRange(20, 5000)
         self.spn_poll.setValue(self.cfg.poll_interval_ms)
         self.spn_poll.setSuffix(" ms")
-        form.addRow("Chu kỳ đọc PLC:", self.spn_poll)
+        form.addRow(tr("Chu kỳ đọc PLC:"), self.spn_poll)
 
         self.spn_hs = QDoubleSpinBox(); self.spn_hs.setRange(0.5, 120)
         self.spn_hs.setValue(self.cfg.handshake_timeout_s)
         self.spn_hs.setSuffix(" s")
-        form.addRow("Timeout chờ PLC nhả trigger:", self.spn_hs)
+        form.addRow(tr("Timeout chờ PLC nhả trigger:"), self.spn_hs)
 
         # đường dẫn
         self.txt_base = QLineEdit(self.cfg.paths.base_dir)
-        browse = QPushButton("Chọn…")
+        browse = QPushButton(tr("Chọn…"))
         browse.clicked.connect(self._browse_base)
         h = QHBoxLayout(); h.addWidget(self.txt_base, 1); h.addWidget(browse)
         hb = QWidget(); hb.setLayout(h)
-        form.addRow("Thư mục gốc dữ liệu:", hb)
+        form.addRow(tr("Thư mục gốc dữ liệu:"), hb)
 
         self.txt_sub4 = QLineEdit(self.cfg.paths.sub_4x)
         self.txt_sub8 = QLineEdit(self.cfg.paths.sub_8x)
         self.txt_sub16 = QLineEdit(self.cfg.paths.sub_16x)
         self.txt_lglob = QLineEdit(self.cfg.paths.left_glob)
         self.txt_rglob = QLineEdit(self.cfg.paths.right_glob)
-        form.addRow("Thư mục con 4X:", self.txt_sub4)
-        form.addRow("Thư mục con 8X:", self.txt_sub8)
-        form.addRow("Thư mục con 16X:", self.txt_sub16)
-        form.addRow("Mẫu tên file Trái:", self.txt_lglob)
-        form.addRow("Mẫu tên file Phải:", self.txt_rglob)
-        form.addRow(QLabel("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*"))
+        form.addRow(tr("Thư mục con 4X:"), self.txt_sub4)
+        form.addRow(tr("Thư mục con 8X:"), self.txt_sub8)
+        form.addRow(tr("Thư mục con 16X:"), self.txt_sub16)
+        form.addRow(tr("Mẫu tên file Trái:"), self.txt_lglob)
+        form.addRow(tr("Mẫu tên file Phải:"), self.txt_rglob)
+        form.addRow(QLabel(tr("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*")))
 
         self.chk_today = QCheckBox(
-            "Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)")
+            tr("Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)"))
         self.chk_today.setChecked(self.cfg.paths.require_today)
         form.addRow(self.chk_today)
         return w
 
     def _browse_base(self):
-        d = QFileDialog.getExistingDirectory(self, "Chọn thư mục gốc dữ liệu",
+        d = QFileDialog.getExistingDirectory(self, tr("Chọn thư mục gốc dữ liệu"),
                                              self.txt_base.text())
         if d:
             self.txt_base.setText(d)
@@ -114,10 +168,10 @@ class SettingsDialog(QDialog):
         self.spn_plc_port.setValue(self.cfg.plc.port)
         self.spn_plc_to = QDoubleSpinBox(); self.spn_plc_to.setRange(0.2, 30)
         self.spn_plc_to.setValue(self.cfg.plc.timeout); self.spn_plc_to.setSuffix(" s")
-        form.addRow("IP PLC chung:", self.txt_plc_ip)
-        form.addRow("Port:", self.spn_plc_port)
-        form.addRow("Timeout:", self.spn_plc_to)
-        form.addRow(QLabel("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải."))
+        form.addRow(tr("IP PLC chung:"), self.txt_plc_ip)
+        form.addRow(tr("Port:"), self.spn_plc_port)
+        form.addRow(tr("Timeout:"), self.spn_plc_to)
+        form.addRow(QLabel(tr("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải.")))
         return w
 
     # ------------------------------------------------------------------ #
@@ -128,41 +182,41 @@ class SettingsDialog(QDialog):
         api = self.cfg.api
 
         # --- Tham số kết nối dùng chung cho mọi loại đầu ---
-        form.addRow(_section("Kết nối chung (mọi loại đầu)"))
+        form.addRow(_section(tr("Kết nối chung (mọi loại đầu)")))
         self.spn_api_to = QDoubleSpinBox(); self.spn_api_to.setRange(0.5, 60)
         self.spn_api_to.setValue(api.timeout); self.spn_api_to.setSuffix(" s")
         self.spn_retries = QSpinBox(); self.spn_retries.setRange(1, 10)
         self.spn_retries.setValue(api.retries)
-        self.chk_verify = QCheckBox("Kiểm tra chứng chỉ SSL")
+        self.chk_verify = QCheckBox(tr("Kiểm tra chứng chỉ SSL"))
         self.chk_verify.setChecked(api.verify_ssl)
         self.cbo_fmt = QComboBox()
         self.cbo_fmt.addItems(["values_only", "full_row", "structured"])
         self.cbo_fmt.setCurrentText(api.data_format)
-        self.chk_proxy = QCheckBox("Đi qua proxy hệ thống")
+        self.chk_proxy = QCheckBox(tr("Đi qua proxy hệ thống"))
         self.chk_proxy.setChecked(api.use_proxy)
         self.txt_proxy = QLineEdit(api.proxy)
-        self.txt_proxy.setPlaceholderText("vd http://10.0.0.1:8080 (để trống = proxy hệ thống)")
-        form.addRow("Timeout:", self.spn_api_to)
-        form.addRow("Số lần retry:", self.spn_retries)
+        self.txt_proxy.setPlaceholderText(tr("vd http://10.0.0.1:8080 (để trống = proxy hệ thống)"))
+        form.addRow(tr("Timeout:"), self.spn_api_to)
+        form.addRow(tr("Số lần retry:"), self.spn_retries)
         form.addRow(self.chk_verify)
-        form.addRow("Định dạng trường data:", self.cbo_fmt)
-        form.addRow(QLabel("values_only = chỉ Data01..N | full_row = cả dòng | "
-                           "structured = key:value"))
+        form.addRow(tr("Định dạng trường data:"), self.cbo_fmt)
+        form.addRow(QLabel(tr("values_only = chỉ Data01..N | full_row = cả dòng | "
+                              "structured = key:value")))
         form.addRow(self.chk_proxy)
-        form.addRow("Proxy thủ công:", self.txt_proxy)
-        form.addRow(QLabel("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
-                           "mạng và phải qua proxy công ty."))
+        form.addRow(tr("Proxy thủ công:"), self.txt_proxy)
+        form.addRow(QLabel(tr("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
+                              "mạng và phải qua proxy công ty.")))
 
         # --- API RIÊNG cho từng loại đầu: chọn đầu nào sẽ chạy theo API đó ---
         self._w_api = {}
         for label, head_cfg in (("4X", api.api_4x), ("8X", api.api_8x),
                                 ("16X", api.api_16x)):
-            form.addRow(_section("API đầu %s — chọn đầu %s sẽ chạy theo API này"
+            form.addRow(_section(tr("API đầu %s — chọn đầu %s sẽ chạy theo API này")
                                  % (label, label)))
             self._w_api[label] = self._add_head_api_rows(form, head_cfg)
-        form.addRow(QLabel("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
-                           "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
-                           "CHẶN, không tải lên)."))
+        form.addRow(QLabel(tr("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
+                              "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
+                              "CHẶN, không tải lên).")))
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
         return scroll
@@ -171,21 +225,21 @@ class SettingsDialog(QDialog):
         """Thêm các dòng cấu hình API cho 1 loại đầu; trả về dict widget."""
         url = QLineEdit(head_cfg.url)
         post_ok = QLineEdit(head_cfg.post_ok_contains)
-        post_ok.setPlaceholderText("vd 200 (để trống = chỉ cần HTTP 2xx)")
-        chk = QCheckBox("Bật kiểm tra SN bằng GET")
+        post_ok.setPlaceholderText(tr("vd 200 (để trống = chỉ cần HTTP 2xx)"))
+        chk = QCheckBox(tr("Bật kiểm tra SN bằng GET"))
         chk.setChecked(head_cfg.check_enabled)
         pre = QLineEdit(head_cfg.check_url_prefix)
-        pre.setPlaceholderText("vd http://mes/api/check?sn=")
+        pre.setPlaceholderText(tr("vd http://mes/api/check?sn="))
         suf = QLineEdit(head_cfg.check_url_suffix)
-        suf.setPlaceholderText("vd &station=OP10 (có thể để trống)")
+        suf.setPlaceholderText(tr("vd &station=OP10 (có thể để trống)"))
         chk_ok = QLineEdit(head_cfg.check_ok_contains)
-        chk_ok.setPlaceholderText("vd 0 — body chứa chuỗi này thì SN hợp lệ")
-        form.addRow("URL POST (upload):", url)
-        form.addRow("POST OK khi body chứa:", post_ok)
+        chk_ok.setPlaceholderText(tr("vd 0 — body chứa chuỗi này thì SN hợp lệ"))
+        form.addRow(tr("URL POST (upload):"), url)
+        form.addRow(tr("POST OK khi body chứa:"), post_ok)
         form.addRow(chk)
-        form.addRow("URL GET (tiền tố):", pre)
-        form.addRow("URL GET (hậu tố):", suf)
-        form.addRow("SN hợp lệ khi body chứa:", chk_ok)
+        form.addRow(tr("URL GET (tiền tố):"), pre)
+        form.addRow(tr("URL GET (hậu tố):"), suf)
+        form.addRow(tr("SN hợp lệ khi body chứa:"), chk_ok)
         return {"url": url, "post_ok_contains": post_ok, "check_enabled": chk,
                 "check_url_prefix": pre, "check_url_suffix": suf,
                 "check_ok_contains": chk_ok}
@@ -206,17 +260,17 @@ class SettingsDialog(QDialog):
         pip = QLineEdit(side.plc_ip)
         pport = QSpinBox(); pport.setRange(0, 65535); pport.setValue(side.plc_port)
 
-        form.addRow("Cổng COM tay scan:", port)
-        form.addRow("Baudrate:", baud)
-        form.addRow("Tiền tố file (CCD):", ccd)
-        form.addRow("Bit trigger 4X:", t4)
-        form.addRow("Bit done 4X:", d4)
-        form.addRow("Bit trigger 8X:", t8)
-        form.addRow("Bit done 8X:", d8)
-        form.addRow("Bit trigger 16X:", t16)
-        form.addRow("Bit done 16X:", d16)
-        form.addRow("PLC IP riêng (trống = chung):", pip)
-        form.addRow("PLC Port riêng (0 = chung):", pport)
+        form.addRow(tr("Cổng COM tay scan:"), port)
+        form.addRow(tr("Baudrate:"), baud)
+        form.addRow(tr("Tiền tố file (CCD):"), ccd)
+        form.addRow(tr("Bit trigger 4X:"), t4)
+        form.addRow(tr("Bit done 4X:"), d4)
+        form.addRow(tr("Bit trigger 8X:"), t8)
+        form.addRow(tr("Bit done 8X:"), d8)
+        form.addRow(tr("Bit trigger 16X:"), t16)
+        form.addRow(tr("Bit done 16X:"), d16)
+        form.addRow(tr("PLC IP riêng (trống = chung):"), pip)
+        form.addRow(tr("PLC Port riêng (0 = chung):"), pport)
 
         # lưu tham chiếu widget để đọc lại khi accept
         setattr(self, "_w_%s" % key, {
@@ -234,7 +288,8 @@ class SettingsDialog(QDialog):
         w = QWidget(); v = QVBoxLayout(w)
         self.tbl = QTableWidget(0, 5)
         self.tbl.setHorizontalHeaderLabels(
-            ["Chuyên án", "Tên mã liệu", "Số đầu 4X", "Số đầu 8X", "Số đầu 16X"])
+            [tr("Chuyên án"), tr("Tên mã liệu"), tr("Số đầu 4X"),
+             tr("Số đầu 8X"), tr("Số đầu 16X")])
         hh = self.tbl.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.Stretch)   # Chuyên án
         hh.setSectionResizeMode(1, QHeaderView.Stretch)   # Tên mã liệu
@@ -244,9 +299,9 @@ class SettingsDialog(QDialog):
                                    m.heads_4x, m.heads_8x, m.heads_16x)
 
         h = QHBoxLayout()
-        b_add = QPushButton("Thêm mã liệu")
-        b_imp = QPushButton("Nhập từ Excel…")
-        b_del = QPushButton("Xóa dòng chọn")
+        b_add = QPushButton(tr("Thêm mã liệu"))
+        b_imp = QPushButton(tr("Nhập từ Excel…"))
+        b_del = QPushButton(tr("Xóa dòng chọn"))
         b_add.clicked.connect(
             lambda: self._add_material_row(self._default_new_project(),
                                            "MÃ_MỚI", 0, 0, 0))
@@ -254,12 +309,12 @@ class SettingsDialog(QDialog):
         b_del.clicked.connect(self._del_material_row)
         h.addWidget(b_add); h.addWidget(b_imp); h.addWidget(b_del); h.addStretch(1)
         v.addLayout(h)
-        v.addWidget(QLabel(
+        v.addWidget(QLabel(tr(
             "Cột: Chuyên án | Tên mã liệu | Số đầu 4X / 8X / 16X (loại nào "
             "không có để trống = 0). Mỗi chuyên án gom nhiều mã liệu; ngoài "
             "giao diện chọn Chuyên án rồi mới chọn Mã liệu, và chỉ hiện đúng "
             "các loại đầu mà mã liệu có. Nhập từ Excel: trùng (chuyên án + tên) "
-            "sẽ cập nhật, còn lại thêm mới."))
+            "sẽ cập nhật, còn lại thêm mới.")))
         return w
 
     def _add_material_row(self, project, name, h4, h8, h16):
@@ -299,21 +354,21 @@ class SettingsDialog(QDialog):
     def _import_materials(self):
         """Chọn file Excel/CSV -> nạp mã liệu vào bảng (gộp theo chuyên án + tên)."""
         path, _ = QFileDialog.getOpenFileName(
-            self, "Chọn file mã liệu (Excel/CSV)", self.cfg.paths.base_dir,
-            "Excel/CSV (*.xlsx *.xls *.xlsm *.csv);;Tất cả file (*)")
+            self, tr("Chọn file mã liệu (Excel/CSV)"), self.cfg.paths.base_dir,
+            tr("Excel/CSV (*.xlsx *.xls *.xlsm *.csv);;Tất cả file (*)"))
         if not path:
             return
         try:
             materials, skipped = parse_materials(path)
         except Exception as ex:               # noqa: BLE001
-            QMessageBox.critical(self, "Nhập mã liệu",
-                                 "Không đọc được file:\n%s" % ex)
+            QMessageBox.critical(self, tr("Nhập mã liệu"),
+                                 tr("Không đọc được file:\n%s") % ex)
             return
         if not materials:
             QMessageBox.warning(
-                self, "Nhập mã liệu",
-                "Không tìm thấy mã liệu hợp lệ trong file.\n"
-                "Cần cột Tên mã liệu + ít nhất 1 cột Số đầu 4X / 8X / 16X.")
+                self, tr("Nhập mã liệu"),
+                tr("Không tìm thấy mã liệu hợp lệ trong file.\n"
+                   "Cần cột Tên mã liệu + ít nhất 1 cột Số đầu 4X / 8X / 16X."))
             return
 
         existing = self._material_rows_by_key()
@@ -332,17 +387,18 @@ class SettingsDialog(QDialog):
                 existing[key] = self.tbl.rowCount() - 1
                 added += 1
 
-        msg = "Đã nhập từ:\n%s\n\nThêm mới: %d — Cập nhật: %d" % (
+        msg = tr("Đã nhập từ:\n%s\n\nThêm mới: %d — Cập nhật: %d") % (
             path, added, updated)
         if skipped:
-            msg += "\nBỏ qua %d dòng không có tên mã." % skipped
-        QMessageBox.information(self, "Nhập mã liệu", msg)
+            msg += tr("\nBỏ qua %d dòng không có tên mã.") % skipped
+        QMessageBox.information(self, tr("Nhập mã liệu"), msg)
 
     # ------------------------------------------------------------------ #
     #  Đọc widget -> cấu hình                                             #
     # ------------------------------------------------------------------ #
     def _collect(self):
         c = self.cfg
+        c.language = self.cbo_lang.currentData() or getattr(c, "language", "vi")
         c.simulation = self.chk_sim.isChecked()
         c.poll_interval_ms = self.spn_poll.value()
         c.handshake_timeout_s = self.spn_hs.value()

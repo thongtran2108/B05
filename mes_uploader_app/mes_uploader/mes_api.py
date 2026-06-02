@@ -13,6 +13,8 @@ Theo yêu cầu:
 
 import time
 
+from .i18n import tr
+
 try:
     import requests
 except ImportError:                      # cho phép import module khi chưa cài requests
@@ -73,9 +75,9 @@ def short_error(code, text):
     low = t.lower()
     if ("<html" in low or "<!doctype" in low or "squid" in low
             or "err_access_denied" in low or "proxy" in low):
-        return ("máy chủ/proxy chặn request (HTTP %s). Kiểm tra URL MES và "
-                "BỎ chọn 'Đi qua proxy hệ thống' trong Setting > API nếu MES "
-                "là máy chủ nội bộ." % code)
+        return (tr("máy chủ/proxy chặn request (HTTP %s). Kiểm tra URL MES và "
+                   "BỎ chọn 'Đi qua proxy hệ thống' trong Setting > API nếu MES "
+                   "là máy chủ nội bộ.") % code)
     if len(t) > 200:
         t = t[:200] + "…"
     if code:
@@ -107,7 +109,7 @@ def check_sn(sn, prefix, suffix="", ok_contains="0", timeout=5.0,
     hoặc body KHÔNG chứa chuỗi mong đợi -> bên gọi sẽ CHẶN, chờ quét mã khác.
     """
     if requests is None:
-        return False, "Chưa cài thư viện 'requests'"
+        return False, tr("Chưa cài thư viện 'requests'")
     url = "%s%s%s" % (prefix or "", sn, suffix or "")
     try:
         session, proxies = _make_session(use_proxy, proxy)
@@ -117,14 +119,14 @@ def check_sn(sn, prefix, suffix="", ok_contains="0", timeout=5.0,
         if logger:
             logger("GET check SN -> HTTP %d" % resp.status_code)
         if not (200 <= resp.status_code < 300):
-            return False, "MES từ chối kiểm tra SN (HTTP %d): %s" \
+            return False, tr("MES từ chối kiểm tra SN (HTTP %d): %s") \
                 % (resp.status_code, short_error(resp.status_code, body))
         if ok_contains and ok_contains not in body:
             # body thường chứa lý do (vd 'da test', 'trung SN'...) -> hiện ra
-            return False, (body[:200] if body else "SN không hợp lệ (MES không trả mã cho phép)")
-        return True, "SN hợp lệ"
+            return False, (body[:200] if body else tr("SN không hợp lệ (MES không trả mã cho phép)"))
+        return True, tr("SN hợp lệ")
     except Exception as ex:               # noqa: BLE001
-        return False, "Lỗi GET kiểm tra SN: %s" % ex
+        return False, tr("Lỗi GET kiểm tra SN: %s") % ex
 
 
 # ---------------------------------------------------------------------- #
