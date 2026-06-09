@@ -496,10 +496,13 @@ class SettingsDialog(QDialog):
         ci.sub_image = self.txt_img_sub.text().strip() or "Image"
         ci.ok_dir = self.txt_img_ok.text().strip() or "OK"
         ci.ng_dir = self.txt_img_ng.text().strip() or "NG"
-        exts = [e.strip() for e in
-                self.txt_img_ext.text().replace(";", ",").split(",")]
-        ci.extensions = [(e if e.startswith(".") else "." + e)
-                         for e in exts if e] or [".jpg"]
+        exts = []
+        for e in self.txt_img_ext.text().replace(";", ",").split(","):
+            # chấp nhận "jpg", ".jpg", "*.jpg", " .JPG " -> chuẩn hóa ".jpg"
+            e = e.strip().lstrip("*").lstrip(".").strip().lower()
+            if e:
+                exts.append("." + e)
+        ci.extensions = exts or [".jpg"]
         for label, head_cfg in (("4X", ci.img_4x), ("8X", ci.img_8x),
                                 ("16X", ci.img_16x)):
             ws = self._w_img[label]

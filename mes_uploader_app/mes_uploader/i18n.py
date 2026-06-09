@@ -188,6 +188,10 @@ _TR = {
     "  [ẢNH] %s": {"en": "  [IMAGE] %s", "zh": "  [图片] %s"},
     "  [ẢNH] Bỏ qua: %s": {
         "en": "  [IMAGE] Skipped: %s", "zh": "  [图片] 跳过：%s"},
+    "  [ẢNH] Bỏ qua: hàng đợi tải ảnh đầy (đích chậm?)": {
+        "en": "  [IMAGE] Skipped: upload queue full (slow destination?)",
+        "zh": "  [图片] 跳过：上传队列已满 (目标过慢?)",
+    },
 
     # ----- image_uploader (tải ảnh AOI) -----
     "Chưa cấu hình thư mục ảnh nguồn/đích": {

@@ -50,6 +50,8 @@ class SideWorker:
         self._stop = threading.Event()
         self._thread = None
         self._sn_queue = queue.Queue()
+        self._img_queue = queue.Queue(maxsize=64)   # hàng đợi tải ảnh (nền)
+        self._img_thread = None
 
         self._armed = False
         self._state = ST_IDLE
@@ -74,6 +76,10 @@ class SideWorker:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2.0)
+        if self._img_thread:
+            # chờ ảnh đang tải xong (có giới hạn); nếu đích treo, luồng nền
+            # daemon sẽ tự kết thúc cùng tiến trình, không chặn việc dừng.
+            self._img_thread.join(timeout=2.0)
         try:
             self.plc.close()
         except Exception:                    # noqa: BLE001
@@ -278,8 +284,8 @@ class SideWorker:
                    values=reading.get("values", []),
                    file=os.path.basename(reading.get("file", "") or ""))
 
-        # tải ảnh AOI (OK/NG) lên link đích — chạy nền, không chặn dây chuyền
-        self._spawn_image_upload(sn, head_type, reading.get("judge", ""))
+        # tải ảnh AOI (OK/NG) lên link đích — xếp hàng, xử lý ở luồng nền
+        self._enqueue_image_upload(sn, head_type, reading.get("judge", ""))
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -311,12 +317,15 @@ class SideWorker:
         self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
 
-    def _spawn_image_upload(self, sn, head_type, judge):
-        """Tải ảnh AOI (OK/NG) lên link đích ở LUỒNG NỀN — không chặn dây chuyền.
+    def _enqueue_image_upload(self, sn, head_type, judge):
+        """Xếp yêu cầu tải ảnh vào HÀNG ĐỢI để 1 luồng nền xử lý TUẦN TỰ.
 
-        Bỏ qua im lặng nếu tắt tính năng ảnh hoặc loại đầu chưa cấu hình đường
-        dẫn (nguồn/đích). 'when' chốt theo thời điểm nhận tín hiệu để tên file
-        khớp đúng lúc đo (việc copy diễn ra sau ở luồng nền).
+        Tuần tự hóa giúp: không sinh vô số luồng khi đích (share) chậm/chết, và
+        2 đầu cùng SN không ghi đè tên file của nhau. Bỏ qua im lặng nếu tắt
+        tính năng ảnh hoặc loại đầu chưa cấu hình đường dẫn (nguồn/đích). Hàng
+        đợi đầy (đích quá chậm) -> bỏ ảnh + ghi nhật ký, KHÔNG chặn dây chuyền.
+        'when' + require_today chốt theo thời điểm nhận tín hiệu (copy diễn ra
+        sau ở luồng nền).
         """
         images = getattr(self.cfg, "images", None)
         if not images or not images.enabled:
@@ -324,17 +333,37 @@ class SideWorker:
         head_img = head_image(images, head_type)
         if not head_img.source_dir or not head_img.upload_dir:
             return
-        when = datetime.datetime.now()
-        threading.Thread(target=self._do_image_upload,
-                         args=(head_img, images, sn, judge, when),
-                         daemon=True).start()
+        job = (head_img, images, sn, judge, datetime.datetime.now(),
+               self.cfg.paths.require_today)
+        try:
+            self._img_queue.put_nowait(job)
+        except queue.Full:
+            self._emit("log", text=tr("  [ẢNH] Bỏ qua: hàng đợi tải ảnh đầy (đích chậm?)"))
+            return
+        if self._img_thread is None or not self._img_thread.is_alive():
+            self._img_thread = threading.Thread(target=self._image_loop,
+                                                daemon=True)
+            self._img_thread.start()
 
-    def _do_image_upload(self, head_img, images, sn, judge, when):
-        ok, msg, _dest = image_uploader.upload_latest_image(
-            head_img.source_dir, head_img.upload_dir, sn, judge, when=when,
-            sub_image=images.sub_image, ok_dir=images.ok_dir,
-            ng_dir=images.ng_dir, extensions=images.extensions,
-            require_today=self.cfg.paths.require_today)
+    def _image_loop(self):
+        """Luồng nền DUY NHẤT: tải ảnh tuần tự theo hàng đợi tới khi dừng."""
+        while not self._stop.is_set():
+            try:
+                job = self._img_queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            self._do_image_upload(*job)
+
+    def _do_image_upload(self, head_img, images, sn, judge, when, require_today):
+        try:
+            ok, msg, _dest = image_uploader.upload_latest_image(
+                head_img.source_dir, head_img.upload_dir, sn, judge, when=when,
+                sub_image=images.sub_image, ok_dir=images.ok_dir,
+                ng_dir=images.ng_dir, extensions=images.extensions,
+                require_today=require_today)
+        except Exception as ex:              # noqa: BLE001 (luồng nền: không được chết)
+            self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % ex)
+            return
         if ok:
             self._emit("log", text=tr("  [ẢNH] %s") % msg)
         else:

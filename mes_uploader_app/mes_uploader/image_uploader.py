@@ -53,30 +53,73 @@ def build_dest_name(sn, judge, ext=".jpg", when=None):
     return "%s_%s_%s%s" % (sn, _stamp(when), passed_label(judge), ext or ".jpg")
 
 
+def _leaf_for(judge, ok_dir, ng_dir):
+    """Thư mục con theo kết quả: OK -> ok_dir, còn lại -> ng_dir."""
+    return ok_dir if str(judge).strip().upper() == "OK" else ng_dir
+
+
+def _is_day_name(name):
+    """Tên thư mục có đúng định dạng ngày YYYY-MM-DD không."""
+    try:
+        datetime.datetime.strptime(name, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+
 def _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
                require_today):
     """Thư mục ảnh OK/NG tương ứng của ngày yêu cầu.
 
     require_today=True  -> chỉ dùng thư mục NGÀY HÔM NAY; thiếu -> None.
-    require_today=False -> nếu thiếu hôm nay thì lùi về thư mục ngày mới nhất
-                           có chứa thư mục con OK/NG tương ứng.
-    Trả về đường dẫn thư mục, hoặc None nếu không có.
+    require_today=False -> nếu thiếu hôm nay thì lùi về thư mục NGÀY (đúng định
+                           dạng YYYY-MM-DD) mới nhất có chứa thư mục con OK/NG.
+    Trả về đường dẫn thư mục, hoặc None nếu không có (an toàn với lỗi share).
     """
-    leaf = ok_dir if str(judge).strip().upper() == "OK" else ng_dir
+    leaf = _leaf_for(judge, ok_dir, ng_dir)
     img_root = os.path.join(source_dir, sub_image)
     today_dir = os.path.join(img_root, _src_day(when), leaf)
     if os.path.isdir(today_dir):
         return today_dir
-    if require_today or not os.path.isdir(img_root):
+    if require_today:
         return None
-    # fallback: thư mục ngày mới nhất CÓ chứa thư mục con OK/NG cần lấy
-    for day in sorted((d for d in os.listdir(img_root)
-                       if os.path.isdir(os.path.join(img_root, d))),
-                      reverse=True):
-        cand = os.path.join(img_root, day, leaf)
-        if os.path.isdir(cand):
-            return cand
-    return None
+    # fallback: chỉ xét thư mục tên ĐÚNG ngày, có sẵn thư mục con OK/NG cần lấy
+    try:
+        days = sorted(
+            (d for d in os.listdir(img_root)
+             if _is_day_name(d)
+             and os.path.isdir(os.path.join(img_root, d, leaf))),
+            reverse=True)
+    except OSError:                          # img_root không có / share lỗi
+        return None
+    return os.path.join(img_root, days[0], leaf) if days else None
+
+
+def _safe_mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:                          # file biến mất giữa chừng
+        return -1.0
+
+
+def _latest_in_dir(d, extensions):
+    """Ảnh mới nhất (theo mtime) trong thư mục d, hoặc None.
+
+    An toàn với race trên share: listdir/getmtime lỗi -> None / bỏ qua file đó.
+    """
+    if not d:
+        return None
+    exts = {e.lower() for e in (extensions or DEFAULT_EXTENSIONS)}
+    try:
+        names = os.listdir(d)
+    except OSError:                          # thư mục biến mất / share lỗi
+        return None
+    files = [os.path.join(d, n) for n in names]
+    files = [f for f in files
+             if os.path.splitext(f)[1].lower() in exts and os.path.isfile(f)]
+    if not files:
+        return None
+    return max(files, key=_safe_mtime)
 
 
 def find_latest_image(source_dir, judge, when=None, sub_image="Image",
@@ -86,15 +129,7 @@ def find_latest_image(source_dir, judge, when=None, sub_image="Image",
     when = when or datetime.datetime.now()
     d = _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
                    require_today)
-    if not d:
-        return None
-    exts = {e.lower() for e in (extensions or DEFAULT_EXTENSIONS)}
-    files = [os.path.join(d, n) for n in os.listdir(d)]
-    files = [f for f in files
-             if os.path.isfile(f) and os.path.splitext(f)[1].lower() in exts]
-    if not files:
-        return None
-    return max(files, key=os.path.getmtime)
+    return _latest_in_dir(d, extensions)
 
 
 def _unique_path(path):
@@ -121,12 +156,13 @@ def upload_latest_image(source_dir, upload_dir, sn, judge, when=None,
     when = when or datetime.datetime.now()
     if not source_dir or not upload_dir:
         return False, tr("Chưa cấu hình thư mục ảnh nguồn/đích"), None
-    src = find_latest_image(source_dir, judge, when, sub_image, ok_dir, ng_dir,
-                            extensions, require_today)
+    d = _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
+                   require_today)
+    src = _latest_in_dir(d, extensions)
     if not src:
-        where = os.path.join(source_dir, sub_image, _src_day(when),
-                             ok_dir if str(judge).strip().upper() == "OK"
-                             else ng_dir)
+        # báo đúng thư mục đã tìm (kể cả khi fallback sang ngày cũ)
+        where = d or os.path.join(source_dir, sub_image, _src_day(when),
+                                  _leaf_for(judge, ok_dir, ng_dir))
         return False, tr("Không tìm thấy ảnh mới trong %s") % where, None
     ext = os.path.splitext(src)[1] or ".jpg"
     day_dir = os.path.join(upload_dir, _dst_day(when))
@@ -134,7 +170,8 @@ def upload_latest_image(source_dir, upload_dir, sn, judge, when=None,
         os.makedirs(day_dir, exist_ok=True)
         dest = _unique_path(os.path.join(
             day_dir, build_dest_name(sn, judge, ext, when)))
-        shutil.copy2(src, dest)
+        # copy (không phải copy2): để mtime đích = lúc tải, dễ sắp xếp ở đích
+        shutil.copy(src, dest)
     except Exception as ex:                  # noqa: BLE001  (lỗi mạng/quyền)
         return False, tr("Lỗi copy ảnh lên '%s': %s") % (upload_dir, ex), None
     return True, tr("Đã tải ảnh %s") % os.path.basename(dest), dest

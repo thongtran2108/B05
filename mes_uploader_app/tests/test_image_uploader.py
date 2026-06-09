@@ -93,6 +93,19 @@ def main():
     assert os.path.isfile(first)                      # ảnh cũ còn nguyên
     print("  ->", os.path.basename(dest2))
 
+    # 8) require_today=False: lấy NGÀY hợp lệ mới nhất, BỎ thư mục tên rác
+    print("\n== fallback: ngày mới nhất hợp lệ, bỏ thư mục rác ==")
+    # ngày cũ hơn (file mtime cao) + thư mục tên KHÔNG phải ngày ('z' > '2' khi sort)
+    _mk(os.path.join(src, "Image", "2026-06-01", "OK", "old.jpg"), b"OLDDAY", 8000)
+    _mk(os.path.join(src, "Image", "zzz_backup", "OK", "junk.jpg"), b"JUNK", 9999)
+    when3 = datetime.datetime(2027, 1, 1, 12, 0, 0)   # ngày chưa có thư mục
+    latest3 = iu.find_latest_image(src, "OK", when=when3, require_today=False)
+    # phải chọn theo TÊN NGÀY mới nhất (2026-06-09), không theo mtime, bỏ 'zzz_backup'
+    assert latest3 and open(latest3, "rb").read() == b"NEWEST", latest3
+    print("  ->", os.path.relpath(latest3, src))
+    # require_today=True ở ngày trống -> không lùi ngày, trả None
+    assert iu.find_latest_image(src, "OK", when=when3, require_today=True) is None
+
     print("\nTEST IMAGE-UPLOADER PASS ✔")
 
 
