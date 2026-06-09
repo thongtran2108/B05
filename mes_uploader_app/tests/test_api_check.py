@@ -43,20 +43,25 @@ class _FakeRequests:
 def main():
     mes_api.requests = _FakeRequests   # monkeypatch
 
-    # ---- GET kiểm tra SN ----
+    # ---- GET kiểm tra SN (so khớp BẰNG ĐÚNG, giống main.py: req.text == '0') ----
     pre = "http://mes/check?sn="
     _FakeSession.routes = {
-        ("GET", pre + "GOOD"): (200, "0"),          # hợp lệ (body chứa '0')
-        ("GET", pre + "USED"): (200, "đã test rồi"),  # body không chứa '0' -> chặn
-        ("GET", pre + "ERR"): (500, "server error"),  # HTTP lỗi -> chặn
+        ("GET", pre + "GOOD"): (200, "0"),            # body == '0' -> hợp lệ
+        ("GET", pre + "USED"): (200, "đã test rồi"),  # body != '0'  -> chặn
+        ("GET", pre + "DUP"): (200, "100"),           # CHỨA '0' nhưng != '0' -> chặn
+        ("GET", pre + "ERR"): (500, "server error"),  # HTTP lỗi      -> chặn
     }
-    ok, msg = mes_api.check_sn("GOOD", pre, ok_contains="0")
+    ok, msg = mes_api.check_sn("GOOD", pre, ok_value="0")
     print("GET GOOD ->", ok, "|", msg); assert ok is True
 
-    ok, msg = mes_api.check_sn("USED", pre, ok_contains="0")
+    ok, msg = mes_api.check_sn("USED", pre, ok_value="0")
     print("GET USED ->", ok, "|", msg); assert ok is False and "test" in msg
 
-    ok, msg = mes_api.check_sn("ERR", pre, ok_contains="0")
+    # body '100' CHỨA '0' nhưng KHÁC '0' -> phải chặn (lỗi cũ: 'chứa' sẽ nhận nhầm)
+    ok, msg = mes_api.check_sn("DUP", pre, ok_value="0")
+    print("GET DUP  ->", ok, "|", msg); assert ok is False and "100" in msg
+
+    ok, msg = mes_api.check_sn("ERR", pre, ok_value="0")
     print("GET ERR  ->", ok, "|", msg[:40]); assert ok is False
 
     # ---- POST với ok_contains ----

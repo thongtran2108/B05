@@ -33,11 +33,11 @@ def main():
     # API riêng cho đầu 8X (worker arm 8X) — kiểm tra SN + POST theo API này
     cfg.api.api_8x.check_enabled = True
     cfg.api.api_8x.check_url_prefix = "http://mes/check?sn="
-    cfg.api.api_8x.check_ok_contains = "0"
+    cfg.api.api_8x.check_ok_value = "0"
     cfg.api.api_8x.post_ok_contains = "200"
 
     # GET giả: chỉ SN 'GOOD' hợp lệ
-    def fake_check(sn, prefix, suffix="", ok_contains="0", **kw):
+    def fake_check(sn, prefix, suffix="", ok_value="0", **kw):
         if sn == "GOOD":
             return True, "SN hợp lệ"
         return False, "SN đã test (giả lập)"

@@ -237,7 +237,7 @@ class SideWorker:
         self._emit("log", text=tr("Kiểm tra SN %s qua GET (API đầu %s)…") % (sn, head_type))
         ok, msg = mes_api.check_sn(
             sn, head.check_url_prefix, head.check_url_suffix,
-            ok_contains=head.check_ok_contains, timeout=api.timeout,
+            ok_value=head.check_ok_value, timeout=api.timeout,
             verify_ssl=api.verify_ssl, use_proxy=api.use_proxy, proxy=api.proxy,
             logger=lambda m: self._emit("log", text="  " + m))
         if ok:

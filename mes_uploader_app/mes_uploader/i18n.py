@@ -324,8 +324,8 @@ _TR = {
         "en": "Enable SN check via GET", "zh": "启用通过 GET 检查 SN"},
     "URL GET (tiền tố):": {"en": "GET URL (prefix):", "zh": "GET 网址 (前缀)："},
     "URL GET (hậu tố):": {"en": "GET URL (suffix):", "zh": "GET 网址 (后缀)："},
-    "SN hợp lệ khi body chứa:": {
-        "en": "SN valid when body contains:", "zh": "当响应体包含以下内容时 SN 有效："},
+    "SN hợp lệ khi body bằng:": {
+        "en": "SN valid when body equals:", "zh": "当响应体等于以下内容时 SN 有效："},
     "vd 200 (để trống = chỉ cần HTTP 2xx)": {
         "en": "e.g. 200 (empty = HTTP 2xx is enough)",
         "zh": "例如 200 (留空 = 只要 HTTP 2xx)",
@@ -334,9 +334,9 @@ _TR = {
         "en": "e.g. http://mes/api/check?sn=", "zh": "例如 http://mes/api/check?sn="},
     "vd &station=OP10 (có thể để trống)": {
         "en": "e.g. &station=OP10 (may be empty)", "zh": "例如 &station=OP10 (可留空)"},
-    "vd 0 — body chứa chuỗi này thì SN hợp lệ": {
-        "en": "e.g. 0 — SN is valid if body contains this string",
-        "zh": "例如 0 — 响应体包含此字符串则 SN 有效",
+    "vd 0 — body BẰNG ĐÚNG giá trị này thì SN hợp lệ": {
+        "en": "e.g. 0 — SN is valid only if body equals this value exactly",
+        "zh": "例如 0 — 响应体完全等于此值时 SN 才有效",
     },
     "Mỗi loại đầu có endpoint riêng. POST = tải kết quả; GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> CHẶN, không tải lên).": {
         "en": "Each head type has its own endpoint. POST = upload results; GET checks SN at <prefix>+SN+<suffix> (bad SN -> BLOCK, no upload).",

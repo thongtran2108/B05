@@ -83,11 +83,12 @@ class HeadApiConfig:
 
     # --- Kiểm tra SN bằng GET TRƯỚC khi chạy ---
     # GET tới: check_url_prefix + SN + check_url_suffix
-    # SN hợp lệ nếu nội dung trả về CHỨA chuỗi check_ok_contains.
+    # SN hợp lệ khi nội dung trả về BẰNG ĐÚNG check_ok_value (giống main.py:
+    # req.text == '0'). Để trống check_ok_value -> chỉ cần HTTP 2xx.
     check_enabled: bool = True
     check_url_prefix: str = ""      # vd "http://mes/api/check?sn="
     check_url_suffix: str = ""      # vd "&station=OP10"
-    check_ok_contains: str = "0"    # body CHỨA chuỗi này -> SN hợp lệ (theo mẫu)
+    check_ok_value: str = "0"       # body == giá trị này -> SN hợp lệ (vd "0")
 
 
 @dataclass
@@ -215,10 +216,25 @@ def _legacy_head_api(data):
     """Lấy HeadApiConfig từ các trường API 'phẳng' kiểu cũ (1 API chung)."""
     kwargs = {}
     for name in ("url", "post_ok_contains", "station_name", "check_enabled",
-                 "check_url_prefix", "check_url_suffix", "check_ok_contains"):
+                 "check_url_prefix", "check_url_suffix", "check_ok_value"):
         if name in data:
             kwargs[name] = data[name]
+    # tương thích khóa cũ 'check_ok_contains' (nay đổi thành 'check_ok_value')
+    if "check_ok_value" not in data and "check_ok_contains" in data:
+        kwargs["check_ok_value"] = data["check_ok_contains"]
     return HeadApiConfig(**kwargs)
+
+
+def _head_api_from_dict(sub):
+    """HeadApiConfig từ 1 sub-dict 'api_*' mới, tương thích khóa cũ.
+
+    Cấu hình cũ dùng 'check_ok_contains' (so khớp 'chứa'); nay đổi thành
+    'check_ok_value' (so khớp BẰNG ĐÚNG như main.py) -> tự chuyển khi nạp.
+    """
+    cfg = _from_dict(HeadApiConfig, sub)
+    if "check_ok_value" not in sub and "check_ok_contains" in sub:
+        cfg.check_ok_value = sub["check_ok_contains"]
+    return cfg
 
 
 def _api_from_dict(data):
@@ -240,7 +256,7 @@ def _api_from_dict(data):
     heads = {}
     for fld in ("api_4x", "api_8x", "api_16x"):
         sub = data.get(fld)
-        heads[fld] = (_from_dict(HeadApiConfig, sub) if isinstance(sub, dict)
+        heads[fld] = (_head_api_from_dict(sub) if isinstance(sub, dict)
                       else _legacy_head_api(data))
     return ApiConfig(**shared, **heads)
 

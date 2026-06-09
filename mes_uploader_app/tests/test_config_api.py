@@ -45,7 +45,7 @@ def main():
         assert h.url == "http://old/upload"
         assert h.post_ok_contains == "OKK"
         assert h.check_url_prefix == "http://old/check?sn="
-        assert h.check_ok_contains == "Z"
+        assert h.check_ok_value == "Z"   # khóa cũ 'check_ok_contains' -> 'check_ok_value'
     a.api_4x.url = "ĐỔI"                                # phải độc lập, không share
     assert a.api_8x.url == "http://old/upload"
     print("  OK (3 đầu nhận cùng API cũ, sửa 1 đầu không ảnh hưởng đầu khác)")
@@ -55,15 +55,20 @@ def main():
     new = {
         "timeout": 5.0,
         "api_4x": {"url": "http://u/4x"},
-        "api_8x": {"url": "http://u/8x"},
-        "api_16x": {"url": "http://u/16x", "check_url_prefix": "http://u/16x/check?sn="},
+        "api_8x": {"url": "http://u/8x", "check_ok_contains": "Q"},  # khóa cũ trong sub-dict
+        "api_16x": {"url": "http://u/16x", "check_url_prefix": "http://u/16x/check?sn=",
+                    "check_ok_value": "9"},
     }
     a2 = _api_from_dict(new)
     assert (a2.api_4x.url, a2.api_8x.url, a2.api_16x.url) == (
         "http://u/4x", "http://u/8x", "http://u/16x")
     assert a2.api_16x.check_url_prefix == "http://u/16x/check?sn="
+    # khóa cũ 'check_ok_contains' trong sub-dict -> chuyển sang 'check_ok_value'
+    assert a2.api_8x.check_ok_value == "Q"
+    assert a2.api_16x.check_ok_value == "9"
     # field không khai báo -> dùng mặc định HeadApiConfig
     assert a2.api_4x.post_ok_contains == HeadApiConfig().post_ok_contains
+    assert a2.api_4x.check_ok_value == HeadApiConfig().check_ok_value   # "0"
     print("  OK")
 
     # 4) save/load roundtrip giữ nguyên 3 API

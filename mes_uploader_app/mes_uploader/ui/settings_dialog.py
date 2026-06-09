@@ -234,18 +234,18 @@ class SettingsDialog(QDialog):
         pre.setPlaceholderText(tr("vd http://mes/api/check?sn="))
         suf = QLineEdit(head_cfg.check_url_suffix)
         suf.setPlaceholderText(tr("vd &station=OP10 (có thể để trống)"))
-        chk_ok = QLineEdit(head_cfg.check_ok_contains)
-        chk_ok.setPlaceholderText(tr("vd 0 — body chứa chuỗi này thì SN hợp lệ"))
+        chk_ok = QLineEdit(head_cfg.check_ok_value)
+        chk_ok.setPlaceholderText(tr("vd 0 — body BẰNG ĐÚNG giá trị này thì SN hợp lệ"))
         form.addRow(tr("URL POST (upload):"), url)
         form.addRow(tr("POST OK khi body chứa:"), post_ok)
         form.addRow(tr("Tên trạm (stationName):"), station)
         form.addRow(chk)
         form.addRow(tr("URL GET (tiền tố):"), pre)
         form.addRow(tr("URL GET (hậu tố):"), suf)
-        form.addRow(tr("SN hợp lệ khi body chứa:"), chk_ok)
+        form.addRow(tr("SN hợp lệ khi body bằng:"), chk_ok)
         return {"url": url, "post_ok_contains": post_ok, "station_name": station,
                 "check_enabled": chk, "check_url_prefix": pre,
-                "check_url_suffix": suf, "check_ok_contains": chk_ok}
+                "check_url_suffix": suf, "check_ok_value": chk_ok}
 
     # ------------------------------------------------------------------ #
     #  Tab Tải ảnh                                                        #
@@ -489,7 +489,7 @@ class SettingsDialog(QDialog):
             head_cfg.check_enabled = ws["check_enabled"].isChecked()
             head_cfg.check_url_prefix = ws["check_url_prefix"].text().strip()
             head_cfg.check_url_suffix = ws["check_url_suffix"].text().strip()
-            head_cfg.check_ok_contains = ws["check_ok_contains"].text().strip()
+            head_cfg.check_ok_value = ws["check_ok_value"].text().strip()
 
         ci = c.images
         ci.enabled = self.chk_img.isChecked()

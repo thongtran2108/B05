@@ -132,8 +132,13 @@ xem SN có được phép chạy không:
 
 ```
 GET  <check_url_prefix> + SN + <check_url_suffix>
-SN hợp lệ  ⇔  nội dung trả về CHỨA chuỗi `check_ok_contains` (mặc định "0")
+SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc định "0")
 ```
+
+> Giống `main.py`: `req = requests.get(sn_link1 + SN + sn_link2)` rồi
+> `if req.text == '0'`. So khớp **bằng đúng** (không phải "chứa") để tránh nhận
+> nhầm phản hồi lỗi có lẫn ký tự `0` (mã lỗi, số đếm…). Để trống
+> `check_ok_value` → chỉ cần HTTP 2xx.
 
 - **Hợp lệ** → cho chạy bình thường.
 - **Không hợp lệ / GET lỗi mạng / HTTP ≠ 2xx** → **CHẶN**: hiện "SN BỊ CHẶN"

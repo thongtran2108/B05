@@ -116,12 +116,17 @@ def _make_session(use_proxy, proxy):
 # ---------------------------------------------------------------------- #
 #  Kiểm tra SN bằng GET (trước khi cho chạy)                              #
 # ---------------------------------------------------------------------- #
-def check_sn(sn, prefix, suffix="", ok_contains="0", timeout=5.0,
+def check_sn(sn, prefix, suffix="", ok_value="0", timeout=5.0,
              verify_ssl=True, use_proxy=False, proxy="", logger=None):
-    """GET tới prefix+SN+suffix; SN hợp lệ nếu body CHỨA 'ok_contains'.
+    """GET tới prefix+SN+suffix; SN hợp lệ khi body BẰNG ĐÚNG 'ok_value'.
+
+    Theo main.py: `req = requests.get(sn_link1 + SN + sn_link2)` rồi
+    `if req.text == '0'` -> hợp lệ. So khớp BẰNG ĐÚNG (không phải 'chứa') để
+    tránh nhận nhầm phản hồi lỗi có lẫn ký tự '0' (mã lỗi, số đếm...). Để trống
+    ok_value -> chỉ cần HTTP 2xx là hợp lệ.
 
     Trả về (ok: bool, message: str). ok=False khi: GET lỗi mạng, HTTP != 2xx,
-    hoặc body KHÔNG chứa chuỗi mong đợi -> bên gọi sẽ CHẶN, chờ quét mã khác.
+    hoặc body KHÁC giá trị mong đợi -> bên gọi sẽ CHẶN, chờ quét mã khác.
     """
     if requests is None:
         return False, tr("Chưa cài thư viện 'requests'")
@@ -136,7 +141,7 @@ def check_sn(sn, prefix, suffix="", ok_contains="0", timeout=5.0,
         if not (200 <= resp.status_code < 300):
             return False, tr("MES từ chối kiểm tra SN (HTTP %d): %s") \
                 % (resp.status_code, short_error(resp.status_code, body))
-        if ok_contains and ok_contains not in body:
+        if ok_value and body != ok_value:
             # body thường chứa lý do (vd 'da test', 'trung SN'...) -> hiện ra
             return False, (body[:200] if body else tr("SN không hợp lệ (MES không trả mã cho phép)"))
         return True, tr("SN hợp lệ")

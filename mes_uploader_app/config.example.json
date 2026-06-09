@@ -22,7 +22,7 @@
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=4x&sn=",
       "check_url_suffix": "",
-      "check_ok_contains": "0"
+      "check_ok_value": "0"
     },
     "api_8x": {
       "url": "http://localhost/api/mes/upload/8x",
@@ -31,7 +31,7 @@
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=8x&sn=",
       "check_url_suffix": "",
-      "check_ok_contains": "0"
+      "check_ok_value": "0"
     },
     "api_16x": {
       "url": "http://localhost/api/mes/upload/16x",
@@ -40,7 +40,7 @@
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=16x&sn=",
       "check_url_suffix": "",
-      "check_ok_contains": "0"
+      "check_ok_value": "0"
     }
   },
   "paths": {
