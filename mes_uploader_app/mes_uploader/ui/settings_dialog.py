@@ -67,6 +67,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._tab_general(), tr("Chung"))
         self.tabs.addTab(self._tab_plc(), tr("PLC"))
         self.tabs.addTab(self._tab_api(), tr("API MES"))
+        self.tabs.addTab(self._tab_images(), tr("Tải ảnh"))
         self.tabs.addTab(self._tab_side("left"), tr("Bên trái"))
         self.tabs.addTab(self._tab_side("right"), tr("Bên phải"))
         self.tabs.addTab(self._tab_materials(), tr("Mã liệu"))
@@ -245,6 +246,62 @@ class SettingsDialog(QDialog):
         return {"url": url, "post_ok_contains": post_ok, "station_name": station,
                 "check_enabled": chk, "check_url_prefix": pre,
                 "check_url_suffix": suf, "check_ok_contains": chk_ok}
+
+    # ------------------------------------------------------------------ #
+    #  Tab Tải ảnh                                                        #
+    # ------------------------------------------------------------------ #
+    def _tab_images(self):
+        w = QWidget(); form = QFormLayout(w)
+        img = self.cfg.images
+
+        self.chk_img = QCheckBox(tr("Bật tải ảnh AOI lên link đích"))
+        self.chk_img.setChecked(img.enabled)
+        form.addRow(self.chk_img)
+
+        # --- Tham số dùng chung cho mọi loại đầu ---
+        form.addRow(_section(tr("Cấu trúc thư mục ảnh (mọi loại đầu)")))
+        self.txt_img_sub = QLineEdit(img.sub_image)
+        self.txt_img_ok = QLineEdit(img.ok_dir)
+        self.txt_img_ng = QLineEdit(img.ng_dir)
+        self.txt_img_ext = QLineEdit(", ".join(img.extensions))
+        form.addRow(tr("Thư mục con ảnh:"), self.txt_img_sub)
+        form.addRow(tr("Thư mục ảnh OK:"), self.txt_img_ok)
+        form.addRow(tr("Thư mục ảnh NG:"), self.txt_img_ng)
+        form.addRow(tr("Phần mở rộng ảnh:"), self.txt_img_ext)
+        form.addRow(QLabel(tr("Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/"
+                              "<OK|NG>; đích = <link>/<YYYYMMDD>/.")))
+
+        # --- Đường dẫn RIÊNG theo từng loại đầu ---
+        self._w_img = {}
+        for label, head_cfg in (("4X", img.img_4x), ("8X", img.img_8x),
+                                ("16X", img.img_16x)):
+            form.addRow(_section(tr("Ảnh đầu %s") % label))
+            self._w_img[label] = self._add_head_image_rows(form, head_cfg)
+        form.addRow(QLabel(tr("Đổi tên khi tải: <SN>_<YYYYMMDD HHMMSS>_Passed|"
+                              "Failed.<ext> (vd 123456_20260609 183415_Passed.jpg).")))
+
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
+        return scroll
+
+    def _add_head_image_rows(self, form, head_cfg):
+        """Thêm dòng cấu hình ảnh (nguồn + link đích) cho 1 loại đầu."""
+        src = QLineEdit(head_cfg.source_dir)
+        src.setPlaceholderText(tr("vd D:/AOI/8X (chứa thư mục con Image)"))
+        b_src = QPushButton(tr("Chọn…"))
+        b_src.clicked.connect(lambda: self._browse_into(src))
+        hs = QHBoxLayout(); hs.addWidget(src, 1); hs.addWidget(b_src)
+        hsw = QWidget(); hsw.setLayout(hs)
+        up = QLineEdit(head_cfg.upload_dir)
+        up.setPlaceholderText(tr("vd //10.222.48.222/AOI/17G"))
+        form.addRow(tr("Thư mục ảnh nguồn:"), hsw)
+        form.addRow(tr("Link tải lên (đích):"), up)
+        return {"source_dir": src, "upload_dir": up}
+
+    def _browse_into(self, line_edit):
+        d = QFileDialog.getExistingDirectory(self, tr("Chọn thư mục"),
+                                             line_edit.text())
+        if d:
+            line_edit.setText(d)
 
     # ------------------------------------------------------------------ #
     #  Tab Bên trái / phải                                                #
@@ -433,6 +490,21 @@ class SettingsDialog(QDialog):
             head_cfg.check_url_prefix = ws["check_url_prefix"].text().strip()
             head_cfg.check_url_suffix = ws["check_url_suffix"].text().strip()
             head_cfg.check_ok_contains = ws["check_ok_contains"].text().strip()
+
+        ci = c.images
+        ci.enabled = self.chk_img.isChecked()
+        ci.sub_image = self.txt_img_sub.text().strip() or "Image"
+        ci.ok_dir = self.txt_img_ok.text().strip() or "OK"
+        ci.ng_dir = self.txt_img_ng.text().strip() or "NG"
+        exts = [e.strip() for e in
+                self.txt_img_ext.text().replace(";", ",").split(",")]
+        ci.extensions = [(e if e.startswith(".") else "." + e)
+                         for e in exts if e] or [".jpg"]
+        for label, head_cfg in (("4X", ci.img_4x), ("8X", ci.img_8x),
+                                ("16X", ci.img_16x)):
+            ws = self._w_img[label]
+            head_cfg.source_dir = ws["source_dir"].text().strip()
+            head_cfg.upload_dir = ws["upload_dir"].text().strip()
 
         for key in ("left", "right"):
             ws = getattr(self, "_w_%s" % key)

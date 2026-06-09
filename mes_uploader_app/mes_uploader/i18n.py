@@ -185,6 +185,20 @@ _TR = {
         "en": "PLC read error %s: %s", "zh": "PLC 读取错误 %s：%s"},
     "Lỗi ghi PLC %s: %s": {
         "en": "PLC write error %s: %s", "zh": "PLC 写入错误 %s：%s"},
+    "  [ẢNH] %s": {"en": "  [IMAGE] %s", "zh": "  [图片] %s"},
+    "  [ẢNH] Bỏ qua: %s": {
+        "en": "  [IMAGE] Skipped: %s", "zh": "  [图片] 跳过：%s"},
+
+    # ----- image_uploader (tải ảnh AOI) -----
+    "Chưa cấu hình thư mục ảnh nguồn/đích": {
+        "en": "Image source/destination folder not configured",
+        "zh": "未配置图片源/目标文件夹",
+    },
+    "Không tìm thấy ảnh mới trong %s": {
+        "en": "No new image found in %s", "zh": "在 %s 中找不到新图片"},
+    "Lỗi copy ảnh lên '%s': %s": {
+        "en": "Error copying image to '%s': %s", "zh": "复制图片到 '%s' 出错：%s"},
+    "Đã tải ảnh %s": {"en": "Image uploaded %s", "zh": "已上传图片 %s"},
 
     # ----- mes_api / data_reader (hiện trong log & banner lỗi) -----
     "máy chủ/proxy chặn request (HTTP %s). Kiểm tra URL MES và BỎ chọn 'Đi qua proxy hệ thống' trong Setting > API nếu MES là máy chủ nội bộ.": {
@@ -224,6 +238,7 @@ _TR = {
     "Chung": {"en": "General", "zh": "常规"},
     "PLC": {"en": "PLC", "zh": "PLC"},
     "API MES": {"en": "MES API", "zh": "MES API"},
+    "Tải ảnh": {"en": "Image upload", "zh": "图片上传"},
     "Bên trái": {"en": "Left side", "zh": "左侧"},
     "Bên phải": {"en": "Right side", "zh": "右侧"},
     "Mã liệu": {"en": "Materials", "zh": "料号"},
@@ -323,6 +338,38 @@ _TR = {
         "en": "Each head type has its own endpoint. POST = upload results; GET checks SN at <prefix>+SN+<suffix> (bad SN -> BLOCK, no upload).",
         "zh": "每种探头类型都有各自的端点。POST = 上传结果；GET 检查 SN 到 <前缀>+SN+<后缀> (SN 错误 -> 拦截，不上传)。",
     },
+
+    # ----- Setting: tab Tải ảnh -----
+    "Bật tải ảnh AOI lên link đích": {
+        "en": "Upload AOI images to destination link",
+        "zh": "上传 AOI 图片到目标链接",
+    },
+    "Cấu trúc thư mục ảnh (mọi loại đầu)": {
+        "en": "Image folder structure (all head types)",
+        "zh": "图片文件夹结构 (所有探头类型)",
+    },
+    "Thư mục con ảnh:": {"en": "Image subfolder:", "zh": "图片子目录："},
+    "Thư mục ảnh OK:": {"en": "OK image folder:", "zh": "OK 图片文件夹："},
+    "Thư mục ảnh NG:": {"en": "NG image folder:", "zh": "NG 图片文件夹："},
+    "Phần mở rộng ảnh:": {"en": "Image extensions:", "zh": "图片扩展名："},
+    "Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/<OK|NG>; đích = <link>/<YYYYMMDD>/.": {
+        "en": "Source = <head folder>/<image sub>/<YYYY-MM-DD>/<OK|NG>; destination = <link>/<YYYYMMDD>/.",
+        "zh": "源 = <探头文件夹>/<图片子目录>/<YYYY-MM-DD>/<OK|NG>；目标 = <链接>/<YYYYMMDD>/。",
+    },
+    "Ảnh đầu %s": {"en": "%s head image", "zh": "%s 探头图片"},
+    "Đổi tên khi tải: <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext> (vd 123456_20260609 183415_Passed.jpg).": {
+        "en": "Rename on upload: <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext> (e.g. 123456_20260609 183415_Passed.jpg).",
+        "zh": "上传时重命名：<SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext> (例如 123456_20260609 183415_Passed.jpg)。",
+    },
+    "Thư mục ảnh nguồn:": {"en": "Source image folder:", "zh": "源图片文件夹："},
+    "Link tải lên (đích):": {"en": "Upload link (destination):", "zh": "上传链接 (目标)："},
+    "vd D:/AOI/8X (chứa thư mục con Image)": {
+        "en": "e.g. D:/AOI/8X (contains the Image subfolder)",
+        "zh": "例如 D:/AOI/8X (包含 Image 子目录)",
+    },
+    "vd //10.222.48.222/AOI/17G": {
+        "en": "e.g. //10.222.48.222/AOI/17G", "zh": "例如 //10.222.48.222/AOI/17G"},
+    "Chọn thư mục": {"en": "Choose folder", "zh": "选择文件夹"},
 
     # ----- Setting: tab Bên trái / phải -----
     "Cổng COM tay scan:": {"en": "Scanner COM port:", "zh": "扫码枪 COM 口："},

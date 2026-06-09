@@ -21,13 +21,14 @@ Module này KHÔNG phụ thuộc PySide6: phát sự kiện qua callback on_even
 **data). Lớp giao diện sẽ marshal các sự kiện này về luồng GUI bằng signal.
 """
 
+import datetime
 import os
 import queue
 import threading
 import time
 
-from .. import data_reader, mes_api
-from ..config import side_addresses, head_count, head_api
+from .. import data_reader, image_uploader, mes_api
+from ..config import side_addresses, head_count, head_api, head_image
 from ..hardware.plc_client import MockPlcClient
 from ..i18n import tr
 
@@ -277,6 +278,9 @@ class SideWorker:
                    values=reading.get("values", []),
                    file=os.path.basename(reading.get("file", "") or ""))
 
+        # tải ảnh AOI (OK/NG) lên link đích — chạy nền, không chặn dây chuyền
+        self._spawn_image_upload(sn, head_type, reading.get("judge", ""))
+
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
 
@@ -306,6 +310,35 @@ class SideWorker:
         self._emit("state", state=ST_WAIT_SCAN)
         self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
+
+    def _spawn_image_upload(self, sn, head_type, judge):
+        """Tải ảnh AOI (OK/NG) lên link đích ở LUỒNG NỀN — không chặn dây chuyền.
+
+        Bỏ qua im lặng nếu tắt tính năng ảnh hoặc loại đầu chưa cấu hình đường
+        dẫn (nguồn/đích). 'when' chốt theo thời điểm nhận tín hiệu để tên file
+        khớp đúng lúc đo (việc copy diễn ra sau ở luồng nền).
+        """
+        images = getattr(self.cfg, "images", None)
+        if not images or not images.enabled:
+            return
+        head_img = head_image(images, head_type)
+        if not head_img.source_dir or not head_img.upload_dir:
+            return
+        when = datetime.datetime.now()
+        threading.Thread(target=self._do_image_upload,
+                         args=(head_img, images, sn, judge, when),
+                         daemon=True).start()
+
+    def _do_image_upload(self, head_img, images, sn, judge, when):
+        ok, msg, _dest = image_uploader.upload_latest_image(
+            head_img.source_dir, head_img.upload_dir, sn, judge, when=when,
+            sub_image=images.sub_image, ok_dir=images.ok_dir,
+            ng_dir=images.ng_dir, extensions=images.extensions,
+            require_today=self.cfg.paths.require_today)
+        if ok:
+            self._emit("log", text=tr("  [ẢNH] %s") % msg)
+        else:
+            self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % msg)
 
     def _handshake_done(self, trig, done):
         """Ghi done=1 báo hoàn thành; chờ PLC nhả trigger; hạ done=0."""

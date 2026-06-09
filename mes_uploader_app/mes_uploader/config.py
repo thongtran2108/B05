@@ -128,6 +128,36 @@ class PathConfig:
 
 
 # ---------------------------------------------------------------------- #
+#  Tải ảnh AOI lên link mạng (copy file sang thư mục chia sẻ)            #
+#    Nguồn ở máy (riêng theo loại đầu):                                   #
+#      <source_dir>/<sub_image>/<YYYY-MM-DD>/<OK|NG>/  -> các file ảnh    #
+#    Đích (riêng theo loại đầu): <upload_dir>/<YYYYMMDD>/                  #
+#  Nhận OK/NG của 1 đầu -> lấy ảnh MỚI NHẤT trong thư mục OK|NG tương ứng #
+#  rồi copy lên đích, đổi tên: <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext> #
+# ---------------------------------------------------------------------- #
+@dataclass
+class HeadImageConfig:
+    """Đường dẫn ảnh cho 1 loại đầu (4X / 8X / 16X)."""
+    source_dir: str = ""    # thư mục gốc ở máy chứa ảnh của loại đầu này
+    upload_dir: str = ""    # link đích để tải (copy) ảnh lên (vd UNC //host/share)
+
+
+@dataclass
+class ImageConfig:
+    enabled: bool = True
+    sub_image: str = "Image"        # thư mục con chứa ảnh theo ngày
+    ok_dir: str = "OK"              # thư mục ảnh khi kết quả OK
+    ng_dir: str = "NG"             # thư mục ảnh khi kết quả NG
+    # các phần mở rộng ảnh sẽ tìm (không phân biệt hoa/thường)
+    extensions: List[str] = field(
+        default_factory=lambda: [".jpg", ".jpeg", ".png", ".bmp"])
+    # API riêng theo loại đầu: chọn đầu nào sẽ tải ảnh theo đường dẫn tương ứng
+    img_4x: HeadImageConfig = field(default_factory=HeadImageConfig)
+    img_8x: HeadImageConfig = field(default_factory=HeadImageConfig)
+    img_16x: HeadImageConfig = field(default_factory=HeadImageConfig)
+
+
+# ---------------------------------------------------------------------- #
 #  Toàn bộ cấu hình                                                       #
 # ---------------------------------------------------------------------- #
 @dataclass
@@ -140,6 +170,7 @@ class AppConfig:
     plc: PlcConfig = field(default_factory=PlcConfig)
     api: ApiConfig = field(default_factory=ApiConfig)
     paths: PathConfig = field(default_factory=PathConfig)
+    images: ImageConfig = field(default_factory=ImageConfig)
     left: SideConfig = field(default_factory=lambda: SideConfig(
         name="LEFT", ccd_prefix="CCD1", scanner_port="COM1",
         trig_4x="M120", done_4x="M121",
@@ -167,6 +198,8 @@ def _from_dict(cls, data):
         hint = type_hints[f.name]
         if cls is AppConfig and f.name == "api":
             kwargs[f.name] = _api_from_dict(val)
+        elif cls is AppConfig and f.name == "images":
+            kwargs[f.name] = _images_from_dict(val)
         elif cls is AppConfig and f.name in ("plc", "paths", "left", "right"):
             sub_cls = {"plc": PlcConfig, "paths": PathConfig,
                        "left": SideConfig, "right": SideConfig}[f.name]
@@ -212,6 +245,27 @@ def _api_from_dict(data):
     return ApiConfig(**shared, **heads)
 
 
+def _images_from_dict(data):
+    """Dựng ImageConfig từ dict; mỗi loại đầu 1 HeadImageConfig riêng.
+
+    Cấu hình cũ (không có 'images') -> bên gọi dùng ImageConfig() mặc định.
+    """
+    if not isinstance(data, dict):
+        return ImageConfig()
+    shared = {}
+    for f in fields(ImageConfig):
+        if f.name in ("img_4x", "img_8x", "img_16x"):
+            continue
+        if f.name in data:
+            shared[f.name] = data[f.name]
+    heads = {}
+    for fld in ("img_4x", "img_8x", "img_16x"):
+        sub = data.get(fld)
+        heads[fld] = (_from_dict(HeadImageConfig, sub) if isinstance(sub, dict)
+                      else HeadImageConfig())
+    return ImageConfig(**shared, **heads)
+
+
 def load_config(path):
     """Nạp cấu hình từ JSON; nếu file chưa có thì trả về cấu hình mặc định."""
     if not os.path.exists(path):
@@ -255,3 +309,12 @@ def head_api(api_cfg, head_type):
     if head_type == "8X":
         return api_cfg.api_8x
     return api_cfg.api_16x
+
+
+def head_image(images_cfg, head_type):
+    """Trả về HeadImageConfig (đường dẫn ảnh) theo loại đầu '4X' / '8X' / '16X'."""
+    if head_type == "4X":
+        return images_cfg.img_4x
+    if head_type == "8X":
+        return images_cfg.img_8x
+    return images_cfg.img_16x
