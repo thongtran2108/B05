@@ -271,11 +271,9 @@ _TR = {
         "en": "Shared connection (all head types)", "zh": "公共连接 (所有探头类型)"},
     "Số lần retry:": {"en": "Retry count:", "zh": "重试次数："},
     "Kiểm tra chứng chỉ SSL": {"en": "Verify SSL certificate", "zh": "验证 SSL 证书"},
-    "Định dạng trường data:": {"en": "Data field format:", "zh": "data 字段格式："},
-    "values_only = chỉ Data01..N | full_row = cả dòng | structured = key:value": {
-        "en": "values_only = Data01..N only | full_row = whole row | structured = key:value",
-        "zh": "values_only = 仅 Data01..N | full_row = 整行 | structured = key:value",
-    },
+    "Mã nhân viên (empNo):": {
+        "en": "Employee No. (empNo):", "zh": "员工编号 (empNo)："},
+    "vd V3081479": {"en": "e.g. V3081479", "zh": "例如 V3081479"},
     "Đi qua proxy hệ thống": {"en": "Use system proxy", "zh": "经过系统代理"},
     "vd http://10.0.0.1:8080 (để trống = proxy hệ thống)": {
         "en": "e.g. http://10.0.0.1:8080 (empty = system proxy)",
@@ -293,6 +291,16 @@ _TR = {
     "URL POST (upload):": {"en": "POST URL (upload):", "zh": "POST 网址 (上传)："},
     "POST OK khi body chứa:": {
         "en": "POST OK when body contains:", "zh": "当响应体包含以下内容时 POST 成功："},
+    "Tên trạm (stationName):": {
+        "en": "Station name (stationName):", "zh": "工站名称 (stationName)："},
+    "vd STATION-4X (mỗi loại đầu 1 tên khác nhau)": {
+        "en": "e.g. STATION-4X (a different name per head type)",
+        "zh": "例如 STATION-4X (每种探头类型一个不同名称)",
+    },
+    "POST body: sn + stationName (theo loại đầu) + empNo + timer (dataNN_LM:giá trị).": {
+        "en": "POST body: sn + stationName (per head type) + empNo + timer (dataNN_LM:value).",
+        "zh": "POST 请求体：sn + stationName (按探头类型) + empNo + timer (dataNN_LM:数值)。",
+    },
     "Bật kiểm tra SN bằng GET": {
         "en": "Enable SN check via GET", "zh": "启用通过 GET 检查 SN"},
     "URL GET (tiền tố):": {"en": "GET URL (prefix):", "zh": "GET 网址 (前缀)："},

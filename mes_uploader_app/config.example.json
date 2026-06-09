@@ -12,12 +12,13 @@
     "timeout": 5.0,
     "retries": 3,
     "verify_ssl": true,
-    "data_format": "values_only",
+    "emp_no": "V3081479",
     "use_proxy": false,
     "proxy": "",
     "api_4x": {
       "url": "http://localhost/api/mes/upload/4x",
       "post_ok_contains": "200",
+      "station_name": "STATION-4X",
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=4x&sn=",
       "check_url_suffix": "",
@@ -26,6 +27,7 @@
     "api_8x": {
       "url": "http://localhost/api/mes/upload/8x",
       "post_ok_contains": "200",
+      "station_name": "STATION-8X",
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=8x&sn=",
       "check_url_suffix": "",
@@ -34,6 +36,7 @@
     "api_16x": {
       "url": "http://localhost/api/mes/upload/16x",
       "post_ok_contains": "200",
+      "station_name": "STATION-16X",
       "check_enabled": true,
       "check_url_prefix": "http://mes/api/check?line=16x&sn=",
       "check_url_suffix": "",

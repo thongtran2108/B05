@@ -3,12 +3,12 @@
 
 Theo yêu cầu:
   - 1 SN gọi API 1 lần, GỘP dữ liệu của tất cả các đầu.
-  - Trường "data" chỉ chứa các giá trị đo Data01..N (data_format mặc định
-    = "values_only"). Vẫn hỗ trợ thêm "full_row" / "structured" để chỉnh
-    nhanh trong Setting nếu MES cần định dạng khác.
-  - JSON: {"sn", "project", "material", "measuring_head",
-           "result": "OK"/"NG", "data": ...}
-    (project = chuyên án, material = mã liệu, measuring_head = loại đầu đo)
+  - JSON: {"sn", "stationName", "empNo", "timer"}
+      sn          : mã quét từ tay scan
+      stationName : tên trạm theo loại đầu (4X / 8X / 16X mỗi loại 1 tên)
+      empNo       : mã nhân viên
+      timer       : toàn bộ giá trị đo của các đầu, ghép thành 1 chuỗi
+                    "dataNN_LM:giá_trị" (xem build_timer)
 """
 
 import time
@@ -32,37 +32,52 @@ def overall_result(readings):
 
 
 # ---------------------------------------------------------------------- #
+#  Dựng trường "timer" (toàn bộ giá trị đo của các đầu)                   #
+# ---------------------------------------------------------------------- #
+def _fmt_value(value):
+    """Định dạng 1 giá trị đo cho chuỗi timer (số -> biểu diễn ngắn gọn)."""
+    if isinstance(value, float):
+        return repr(value)          # repr float = chuỗi ngắn nhất round-trip
+    if value is None:
+        return ""
+    return str(value)
+
+
+def build_timer(readings):
+    """Ghép giá trị đo của tất cả các đầu thành 1 chuỗi cho trường "timer".
+
+    Định dạng từng phần tử: "dataNN_LM:giá_trị", ghép lại bằng "; ".
+      - M  = thứ tự lần đọc (đầu), bắt đầu từ 1  -> L1, L2, ...
+      - NN = thứ tự giá trị đo, bắt đầu từ 1, tối thiểu 2 chữ số (01, 02, .. 146)
+
+    Ví dụ 2 lần nhận dữ liệu 8X:
+      data01_L1:26.321; ...; data146_L1:2.48; data01_L2:22.8; ...; data146_L2:10.1
+    """
+    parts = []
+    for read_idx, r in enumerate(readings, start=1):
+        for data_idx, value in enumerate(r.get("values", []), start=1):
+            parts.append("data%02d_L%d:%s"
+                         % (data_idx, read_idx, _fmt_value(value)))
+    return "; ".join(parts)
+
+
+# ---------------------------------------------------------------------- #
 #  Dựng payload JSON                                                      #
 # ---------------------------------------------------------------------- #
-def build_payload(sn, readings, data_format="values_only",
-                  project="", material="", measuring_head=""):
-    """readings: list dict trả về từ data_reader.read_latest_measurement,
-    theo đúng thứ tự các lần chạy (đầu 1, đầu 2, ...).
+def build_payload(sn, readings, station_name="", emp_no=""):
+    """Dựng body POST theo định dạng MES: {"sn", "stationName", "empNo", "timer"}.
 
-    project        : chuyên án đang chạy
-    material       : mã liệu đang chạy
-    measuring_head : loại đầu đo đang chạy ("4X" / "8X" / "16X")
-
-    - values_only : data = [[Data01..N của đầu 1], [... đầu 2], ...]
-    - full_row    : data = ["Time,Judge,...,DataN" (đầu 1), ...]
-    - structured  : data = [{"Data01": .., ...}, ...]
-    Nếu chỉ có 1 đầu thì data vẫn là list 1 phần tử (đồng nhất, dễ parse).
+    sn           : mã quét từ tay scan
+    readings     : list dict trả về từ data_reader.read_latest_measurement,
+                   theo đúng thứ tự các lần chạy (đầu 1, đầu 2, ...).
+    station_name : tên trạm theo loại đầu đang chạy (4X / 8X / 16X)
+    emp_no       : mã nhân viên
     """
-    if data_format == "full_row":
-        data = [",".join("" if c is None else str(c) for c in r["raw"])
-                for r in readings]
-    elif data_format == "structured":
-        data = [dict(zip(r["headers"], r["values"])) for r in readings]
-    else:  # values_only (mặc định)
-        data = [r["values"] for r in readings]
-
     return {
         "sn": sn,
-        "project": project,
-        "material": material,
-        "measuring_head": measuring_head,
-        "result": overall_result(readings),
-        "data": data,
+        "stationName": station_name,
+        "empNo": emp_no,
+        "timer": build_timer(readings),
     }
 
 

@@ -53,8 +53,6 @@ class SideWorker:
         self._armed = False
         self._state = ST_IDLE
         self._material = None
-        self._material_name = ""        # tên mã liệu của SN đang chạy
-        self._project = ""              # chuyên án của SN đang chạy
         self._head_type = "8X"
         self._sn = ""
         self._readings = []
@@ -207,8 +205,6 @@ class SideWorker:
 
         with self._lock:
             self._sn = sn
-            self._material_name = mat_name
-            self._project = material.project if material else ""
             self._readings = []
             self._runs = 0
             self._total = total
@@ -328,14 +324,11 @@ class SideWorker:
     def _finish(self, sn, readings, head_type):
         api = self.cfg.api
         head = head_api(api, head_type)
-        with self._lock:
-            project = self._project
-            material = self._material_name
+        result = mes_api.overall_result(readings)
         payload = mes_api.build_payload(
-            sn, readings, api.data_format,
-            project=project, material=material, measuring_head=head_type)
+            sn, readings, station_name=head.station_name, emp_no=api.emp_no)
         self._emit("log", text=tr("Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s")
-                   % (len(readings), head_type, payload["sn"], payload["result"]))
+                   % (len(readings), head_type, payload["sn"], result))
         ok, code, text = mes_api.post_payload(
             head.url, payload,
             timeout=api.timeout, retries=api.retries,
@@ -348,7 +341,7 @@ class SideWorker:
         else:
             self._emit("log", text=tr("  [FAIL] MES THẤT BẠI: %s")
                        % mes_api.short_error(code, text))
-        self._emit("result", sn=sn, result=payload["result"], ok=ok)
+        self._emit("result", sn=sn, result=result, ok=ok)
 
         with self._lock:
             self._state = ST_WAIT_SCAN

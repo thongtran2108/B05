@@ -77,6 +77,9 @@ class HeadApiConfig:
     url: str = "http://localhost/api/mes/upload"   # POST tải kết quả
     # body CHỨA chuỗi này -> coi là POST thành công (để trống = dựa HTTP 2xx)
     post_ok_contains: str = "200"
+    # Tên trạm gửi trong body POST ("stationName"). Mỗi loại đầu 4X/8X/16X có
+    # 1 tên trạm khác nhau -> đặt riêng cho từng HeadApiConfig.
+    station_name: str = ""
 
     # --- Kiểm tra SN bằng GET TRƯỚC khi chạy ---
     # GET tới: check_url_prefix + SN + check_url_suffix
@@ -92,8 +95,8 @@ class ApiConfig:
     timeout: float = 5.0
     retries: int = 3
     verify_ssl: bool = True
-    # cách dựng trường "data": values_only | full_row | structured
-    data_format: str = "values_only"
+    # Mã nhân viên gửi trong body POST ("empNo") — dùng chung cho mọi loại đầu.
+    emp_no: str = "V3081479"
     # Proxy: MES nội bộ thường KHÔNG nên đi qua proxy công ty.
     #   use_proxy = False -> bỏ qua proxy hệ thống (mặc định)
     #   use_proxy = True  -> dùng proxy hệ thống, hoặc 'proxy' nếu có nhập
@@ -178,7 +181,7 @@ def _from_dict(cls, data):
 def _legacy_head_api(data):
     """Lấy HeadApiConfig từ các trường API 'phẳng' kiểu cũ (1 API chung)."""
     kwargs = {}
-    for name in ("url", "post_ok_contains", "check_enabled",
+    for name in ("url", "post_ok_contains", "station_name", "check_enabled",
                  "check_url_prefix", "check_url_suffix", "check_ok_contains"):
         if name in data:
             kwargs[name] = data[name]

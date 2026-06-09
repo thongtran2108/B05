@@ -29,8 +29,10 @@ def main():
     cfg.paths.require_today = False    # data mẫu cố định ngày cũ
     cfg.materials = [MaterialConfig("ABC", project="Chuyên án A",
                                     heads_8x=2, heads_16x=1)]
-    # API riêng theo đầu: chọn 8X -> POST phải đi tới URL của đầu 8X
+    # API riêng theo đầu: chọn 8X -> POST phải đi tới URL + tên trạm của đầu 8X
     cfg.api.api_8x.url = "http://mes/8x/upload"
+    cfg.api.api_8x.station_name = "STATION-8X"
+    cfg.api.emp_no = "V3081479"
 
     # chặn POST thật, ghi lại payload
     captured = {}
@@ -75,16 +77,17 @@ def main():
     payload = captured["payload"]
     print("POST url:", captured["url"])
     print("payload.sn:", payload["sn"])
-    print("payload.result:", payload["result"])
-    print("payload.data: %d đầu, đầu1 có %d giá trị"
-          % (len(payload["data"]), len(payload["data"][0])))
+    print("payload.stationName:", payload["stationName"])
+    print("payload.empNo:", payload["empNo"])
+    print("payload.timer[:60]:", payload["timer"][:60], "…")
     assert payload["sn"] == "SN-LEFT-001"
-    assert len(payload["data"]) == 2, "Phải gộp đúng 2 đầu"
     assert captured["url"] == "http://mes/8x/upload", "POST phải đi tới API đầu 8X"
-    # body có thêm chuyên án / mã liệu / loại đầu đo đang chạy
-    assert payload["project"] == "Chuyên án A", "body phải có chuyên án đang chạy"
-    assert payload["material"] == "ABC", "body phải có mã liệu đang chạy"
-    assert payload["measuring_head"] == "8X", "body phải có loại đầu đo đang chạy"
+    # body đúng 4 trường theo định dạng MES mới
+    assert set(payload) == {"sn", "stationName", "empNo", "timer"}
+    assert payload["stationName"] == "STATION-8X", "stationName theo API đầu 8X"
+    assert payload["empNo"] == "V3081479", "empNo dùng chung từ ApiConfig"
+    # timer gộp đúng 2 đầu (có L1 và L2)
+    assert "data01_L1:" in payload["timer"] and "data01_L2:" in payload["timer"]
     assert results and results[-1]["sn"] == "SN-LEFT-001"
     print("\nTEST WORKER PASS ✔")
 

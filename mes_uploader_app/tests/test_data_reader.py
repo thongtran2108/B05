@@ -37,29 +37,37 @@ def main():
     print("  time=%s judge=%s #values=%d" % (r["time"], r["judge"], len(r["values"])))
     assert len(r["values"]) > 100
 
-    # Gộp 2 đầu 8X -> 1 payload
-    print("\n== build_payload (2 đầu, values_only) ==")
+    # Gộp 2 đầu 8X -> 1 payload {sn, stationName, empNo, timer}
+    print("\n== build_payload (2 đầu) ==")
     r1 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
     r2 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
-    payload = mes_api.build_payload("SN123456", [r1, r2], data_format="values_only")
-    print("  sn=%s result=%s  so_dau=%d  so_value_dau1=%d"
-          % (payload["sn"], payload["result"], len(payload["data"]),
-             len(payload["data"][0])))
+    payload = mes_api.build_payload("SN123456", [r1, r2],
+                                    station_name="STATION-8X", emp_no="V3081479")
+    n1 = len(r1["values"])
+    print("  sn=%s stationName=%s empNo=%s"
+          % (payload["sn"], payload["stationName"], payload["empNo"]))
+    print("  timer[:60]=%s…" % payload["timer"][:60])
     assert payload["sn"] == "SN123456"
-    assert payload["result"] in ("OK", "NG")
-    assert len(payload["data"]) == 2
-    # 3 trường mới: mặc định rỗng khi không truyền
-    assert payload["project"] == "" and payload["material"] == ""
-    assert payload["measuring_head"] == ""
+    assert payload["stationName"] == "STATION-8X"
+    assert payload["empNo"] == "V3081479"
+    # payload chỉ gồm đúng 4 trường theo yêu cầu MES
+    assert set(payload) == {"sn", "stationName", "empNo", "timer"}
+    # timer: dataNN_LM cho cả 2 đầu, đánh số tối thiểu 2 chữ số
+    timer = payload["timer"]
+    assert timer.startswith("data01_L1:")
+    assert ("data%02d_L1:" % n1) in timer          # giá trị cuối của đầu 1
+    assert "data01_L2:" in timer                    # bắt đầu đầu 2
+    assert ("data%02d_L2:" % n1) in timer           # giá trị cuối của đầu 2
+    # tổng số phần tử = số đầu × số giá trị mỗi đầu
+    assert len(timer.split("; ")) == 2 * n1
+    # giá trị đầu tiên khớp dữ liệu đọc được
+    assert timer.split("; ")[0] == "data01_L1:%s" % mes_api._fmt_value(r1["values"][0])
 
-    # build_payload có chuyên án / mã liệu / loại đầu đo
-    print("\n== build_payload kèm project/material/measuring_head ==")
-    p2 = mes_api.build_payload("SN1", [r1], project="Chuyên án A",
-                               material="ABC", measuring_head="16X")
-    print("  project=%s material=%s measuring_head=%s"
-          % (p2["project"], p2["material"], p2["measuring_head"]))
-    assert (p2["project"], p2["material"], p2["measuring_head"]) == (
-        "Chuyên án A", "ABC", "16X")
+    # stationName / empNo mặc định rỗng khi không truyền
+    print("\n== build_payload mặc định (không truyền stationName/empNo) ==")
+    p2 = mes_api.build_payload("SN1", [r1])
+    assert p2["stationName"] == "" and p2["empNo"] == ""
+    print("  OK")
 
     print("\nTAT CA TEST PASS ✔")
 

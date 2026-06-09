@@ -189,9 +189,8 @@ class SettingsDialog(QDialog):
         self.spn_retries.setValue(api.retries)
         self.chk_verify = QCheckBox(tr("Kiểm tra chứng chỉ SSL"))
         self.chk_verify.setChecked(api.verify_ssl)
-        self.cbo_fmt = QComboBox()
-        self.cbo_fmt.addItems(["values_only", "full_row", "structured"])
-        self.cbo_fmt.setCurrentText(api.data_format)
+        self.txt_emp = QLineEdit(api.emp_no)
+        self.txt_emp.setPlaceholderText(tr("vd V3081479"))
         self.chk_proxy = QCheckBox(tr("Đi qua proxy hệ thống"))
         self.chk_proxy.setChecked(api.use_proxy)
         self.txt_proxy = QLineEdit(api.proxy)
@@ -199,9 +198,7 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Timeout:"), self.spn_api_to)
         form.addRow(tr("Số lần retry:"), self.spn_retries)
         form.addRow(self.chk_verify)
-        form.addRow(tr("Định dạng trường data:"), self.cbo_fmt)
-        form.addRow(QLabel(tr("values_only = chỉ Data01..N | full_row = cả dòng | "
-                              "structured = key:value")))
+        form.addRow(tr("Mã nhân viên (empNo):"), self.txt_emp)
         form.addRow(self.chk_proxy)
         form.addRow(tr("Proxy thủ công:"), self.txt_proxy)
         form.addRow(QLabel(tr("MES nội bộ: BỎ chọn proxy. Chỉ tích nếu MES nằm ngoài "
@@ -217,6 +214,8 @@ class SettingsDialog(QDialog):
         form.addRow(QLabel(tr("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
                               "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
                               "CHẶN, không tải lên).")))
+        form.addRow(QLabel(tr("POST body: sn + stationName (theo loại đầu) + empNo "
+                              "+ timer (dataNN_LM:giá trị).")))
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
         return scroll
@@ -226,6 +225,8 @@ class SettingsDialog(QDialog):
         url = QLineEdit(head_cfg.url)
         post_ok = QLineEdit(head_cfg.post_ok_contains)
         post_ok.setPlaceholderText(tr("vd 200 (để trống = chỉ cần HTTP 2xx)"))
+        station = QLineEdit(head_cfg.station_name)
+        station.setPlaceholderText(tr("vd STATION-4X (mỗi loại đầu 1 tên khác nhau)"))
         chk = QCheckBox(tr("Bật kiểm tra SN bằng GET"))
         chk.setChecked(head_cfg.check_enabled)
         pre = QLineEdit(head_cfg.check_url_prefix)
@@ -236,13 +237,14 @@ class SettingsDialog(QDialog):
         chk_ok.setPlaceholderText(tr("vd 0 — body chứa chuỗi này thì SN hợp lệ"))
         form.addRow(tr("URL POST (upload):"), url)
         form.addRow(tr("POST OK khi body chứa:"), post_ok)
+        form.addRow(tr("Tên trạm (stationName):"), station)
         form.addRow(chk)
         form.addRow(tr("URL GET (tiền tố):"), pre)
         form.addRow(tr("URL GET (hậu tố):"), suf)
         form.addRow(tr("SN hợp lệ khi body chứa:"), chk_ok)
-        return {"url": url, "post_ok_contains": post_ok, "check_enabled": chk,
-                "check_url_prefix": pre, "check_url_suffix": suf,
-                "check_ok_contains": chk_ok}
+        return {"url": url, "post_ok_contains": post_ok, "station_name": station,
+                "check_enabled": chk, "check_url_prefix": pre,
+                "check_url_suffix": suf, "check_ok_contains": chk_ok}
 
     # ------------------------------------------------------------------ #
     #  Tab Bên trái / phải                                                #
@@ -418,7 +420,7 @@ class SettingsDialog(QDialog):
         c.api.timeout = self.spn_api_to.value()
         c.api.retries = self.spn_retries.value()
         c.api.verify_ssl = self.chk_verify.isChecked()
-        c.api.data_format = self.cbo_fmt.currentText()
+        c.api.emp_no = self.txt_emp.text().strip()
         c.api.use_proxy = self.chk_proxy.isChecked()
         c.api.proxy = self.txt_proxy.text().strip()
         for label, head_cfg in (("4X", c.api.api_4x), ("8X", c.api.api_8x),
@@ -426,6 +428,7 @@ class SettingsDialog(QDialog):
             ws = self._w_api[label]
             head_cfg.url = ws["url"].text().strip()
             head_cfg.post_ok_contains = ws["post_ok_contains"].text().strip()
+            head_cfg.station_name = ws["station_name"].text().strip()
             head_cfg.check_enabled = ws["check_enabled"].isChecked()
             head_cfg.check_url_prefix = ws["check_url_prefix"].text().strip()
             head_cfg.check_url_suffix = ws["check_url_suffix"].text().strip()
