@@ -1,0 +1,4 @@
+# Thư viện CHỈ dùng để đóng gói .exe (không cần khi chạy mã nguồn).
+# Cài kèm requirements.txt rồi chạy build_exe.bat (Windows).
+-r requirements.txt
+pyinstaller>=6.0

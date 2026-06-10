@@ -14,8 +14,20 @@ from mes_uploader.config import (
     load_config, save_config, MaterialConfig,
 )
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "config.json")
+
+def _app_dir():
+    """Thư mục gốc của ứng dụng.
+
+    - Khi đóng gói thành .exe (PyInstaller): trả về thư mục CHỨA file .exe để
+      config.json / sample_data nằm CẠNH exe (giữ được sau mỗi lần chạy, dễ sửa).
+    - Khi chạy mã nguồn (python run.py): trả về thư mục chứa run.py.
+    """
+    if getattr(sys, "frozen", False):       # đang chạy từ bản đóng gói
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+CONFIG_PATH = os.path.join(_app_dir(), "config.json")
 
 
 def _seed_if_empty(cfg):

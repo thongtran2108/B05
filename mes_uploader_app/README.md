@@ -59,6 +59,26 @@ python run.py
 3. Bấm **Tín hiệu PLC (giả lập)** đúng *số đầu* lần (vd ABC+8X = 2 lần).
 4. App đọc dòng mới nhất mỗi lần, gộp lại và POST (xem log).
 
+### Đóng gói thành 1 file `.exe` (Windows)
+
+> **Bản `.exe` phải build TRÊN WINDOWS** — PyInstaller không build chéo
+> (chạy trên Linux/macOS chỉ ra file cho chính hệ đó, không ra `.exe` Windows).
+> Máy build cần **Python 3.9+** (khi cài nhớ tích *Add Python to PATH*).
+
+1. Vào thư mục `mes_uploader_app`, **bấm đúp `build_exe.bat`** (hoặc trong `cmd`
+   gõ `build_exe.bat`).
+2. Script tự: cài `requirements-build.txt` (PySide6, pyserial, requests,
+   openpyxl, PyInstaller) → đóng gói **1 file** → chép `sample_data/` +
+   `config.example.json` ra cạnh exe.
+3. Kết quả: **`dist\MES_Uploader.exe`**. Copy cả thư mục `dist` sang máy chạy.
+
+- Lần đầu chạy exe sẽ tự tạo **`config.json` ngay CẠNH exe** (giữ nguyên các
+  lần sau, sửa được). Vào **⚙ Setting** để trỏ đường dẫn dữ liệu / PLC / API
+  thật của nhà máy.
+- App là GUI nên đóng gói ở chế độ **không hiện cửa sổ console** (`--windowed`).
+- Test cấu hình đóng gói trên Linux/macOS: `./build_exe.sh` (ra file chạy cho
+  hệ đó để kiểm thử, **không** phải `.exe` Windows).
+
 ---
 
 ## 3. Cấu trúc file dữ liệu

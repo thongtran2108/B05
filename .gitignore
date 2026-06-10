@@ -7,3 +7,11 @@ venv/
 
 # Cấu hình sinh ra lúc chạy (tạo tự động từ config.example.json)
 mes_uploader_app/config.json
+
+# Sản phẩm đóng gói PyInstaller (build_exe.bat / build_exe.sh)
+build/
+dist/
+*.spec
+mes_uploader_app/build/
+mes_uploader_app/dist/
+mes_uploader_app/*.spec
