@@ -76,6 +76,9 @@ python run.py
   lần sau, sửa được). Vào **⚙ Setting** để trỏ đường dẫn dữ liệu / PLC / API
   thật của nhà máy.
 - App là GUI nên đóng gói ở chế độ **không hiện cửa sổ console** (`--windowed`).
+- **Icon**: `assets/ninja.ico` (icon file `.exe`) + `assets/ninja.png` (icon cửa
+  sổ/thanh tác vụ). Muốn ĐỔI icon: thay 2 file này (giữ tên), hoặc sửa rồi chạy
+  `python assets/make_icon.py` để sinh lại từ ảnh nguồn.
 - Test cấu hình đóng gói trên Linux/macOS: `./build_exe.sh` (ra file chạy cho
   hệ đó để kiểm thử, **không** phải `.exe` Windows).
 

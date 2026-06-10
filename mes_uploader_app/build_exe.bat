@@ -18,6 +18,8 @@ echo.
 echo === [2/3] Dong goi (1 file .exe, khong console) ===
 python -m PyInstaller --noconfirm --clean --onefile --windowed ^
   --name MES_Uploader ^
+  --icon assets\ninja.ico ^
+  --add-data "assets\ninja.png;assets" ^
   --hidden-import openpyxl --hidden-import serial --hidden-import requests ^
   --exclude-module tkinter --exclude-module numpy --exclude-module cv2 ^
   --exclude-module matplotlib --exclude-module PIL --exclude-module pandas ^

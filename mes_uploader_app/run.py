@@ -27,6 +27,13 @@ def _app_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def _resource(rel):
+    """Đường dẫn tài nguyên đóng gói (vd icon): trong _MEIPASS khi đã đóng gói,
+    cạnh run.py khi chạy mã nguồn."""
+    base = getattr(sys, "_MEIPASS", "") or os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, rel)
+
+
 CONFIG_PATH = os.path.join(_app_dir(), "config.json")
 
 
@@ -50,10 +57,14 @@ def main():
 
     # import Qt muộn để các test/headless không cần PySide6
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QIcon
     from mes_uploader.ui.main_window import MainWindow
     from mes_uploader.ui.theme import apply_dark_theme
 
     app = QApplication(sys.argv)
+    icon_path = _resource(os.path.join("assets", "ninja.png"))
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))   # icon cửa sổ + thanh tác vụ
     apply_dark_theme(app)
     win = MainWindow(cfg, CONFIG_PATH)
     win.show()

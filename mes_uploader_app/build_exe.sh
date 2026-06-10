@@ -15,6 +15,8 @@ python -m pip install -r requirements-build.txt
 echo "=== [2/3] Đóng gói (onefile, windowed) ==="
 python -m PyInstaller --noconfirm --clean --onefile --windowed \
   --name MES_Uploader \
+  --icon assets/ninja.ico \
+  --add-data "assets/ninja.png:assets" \
   --hidden-import openpyxl --hidden-import serial --hidden-import requests \
   --exclude-module tkinter --exclude-module numpy --exclude-module cv2 \
   --exclude-module matplotlib --exclude-module PIL --exclude-module pandas \
