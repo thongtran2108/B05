@@ -375,12 +375,16 @@ _TR = {
     "Cổng COM tay scan:": {"en": "Scanner COM port:", "zh": "扫码枪 COM 口："},
     "Baudrate:": {"en": "Baud rate:", "zh": "波特率："},
     "Tiền tố file (CCD):": {"en": "File prefix (CCD):", "zh": "文件前缀 (CCD)："},
-    "Bit trigger 4X:": {"en": "4X trigger bit:", "zh": "4X 触发位："},
-    "Bit done 4X:": {"en": "4X done bit:", "zh": "4X 完成位："},
-    "Bit trigger 8X:": {"en": "8X trigger bit:", "zh": "8X 触发位："},
-    "Bit done 8X:": {"en": "8X done bit:", "zh": "8X 完成位："},
-    "Bit trigger 16X:": {"en": "16X trigger bit:", "zh": "16X 触发位："},
-    "Bit done 16X:": {"en": "16X done bit:", "zh": "16X 完成位："},
+    "Trigger 4X:": {"en": "4X trigger:", "zh": "4X 触发："},
+    "Done 4X:": {"en": "4X done:", "zh": "4X 完成："},
+    "Trigger 8X:": {"en": "8X trigger:", "zh": "8X 触发："},
+    "Done 8X:": {"en": "8X done:", "zh": "8X 完成："},
+    "Trigger 16X:": {"en": "16X trigger:", "zh": "16X 触发："},
+    "Done 16X:": {"en": "16X done:", "zh": "16X 完成："},
+    "Trigger/Done nhận BIT (M…) hoặc thanh ghi WORD (D…); word coi giá trị ≠ 0 là 'bật'.": {
+        "en": "Trigger/Done accept a BIT (M…) or a WORD register (D…); for a word, value ≠ 0 means 'on'.",
+        "zh": "Trigger/Done 可填 BIT (M…) 或 WORD 寄存器 (D…)；word 时值 ≠ 0 视为“开”。",
+    },
     "Thanh ghi kết quả SN (1=OK/2=NG):": {
         "en": "SN result register (1=OK/2=NG):", "zh": "SN 结果寄存器 (1=OK/2=NG)："},
     "vd D100 — ghi 1=OK / 2=NG (để trống = không ghi)": {

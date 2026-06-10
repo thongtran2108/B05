@@ -134,6 +134,10 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 | `done_16x` | app ghi =1 báo "hoàn thành" 16X về PLC   | M111 | M211 |
 | `sn_result_reg` | app ghi **kết quả kiểm tra SN**: `1`=OK, `2`=NG (thanh ghi word, vd `D100`/`D200`; trống = không ghi) | D100 | D200 |
 
+- **Địa chỉ trigger/done nhận BIT hoặc WORD**: bit `M…` (đọc/ghi 0/1) **hoặc**
+  thanh ghi dữ liệu `D…` (word). Với word, app coi **giá trị ≠ 0 = "chạy"**, ghi
+  done = 1 và reset trigger = 0. App tự nhận loại theo tiền tố (`M/X/Y…`=bit,
+  `D/W/R`=word) — Mitsubishi dùng `D` cho thanh ghi dữ liệu (không có "DM").
 - 1 PLC dùng chung 2 bên (IP/Port ở tab **PLC**). Nếu dùng **2 PLC riêng**, đặt
   `plc_ip` / `plc_port` trong tab từng bên.
 - Bắt tay: app phát hiện **sườn lên** của bit trigger → đọc dữ liệu → ghi

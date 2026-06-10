@@ -11,7 +11,7 @@ Giao diện chung (dùng trong máy trạng thái):
 
 import threading
 
-from .mitsubishi_plc import MitsubishiPLC
+from .mitsubishi_plc import MitsubishiPLC, is_word_device
 
 
 class PlcClient:
@@ -119,9 +119,12 @@ class MockPlcClient:
 
     # --- dành cho nút "giả lập tín hiệu PLC" trên giao diện ---
     def pulse(self, device):
-        """PLC giả bật bit trigger lên 1 (báo có 1 lần chạy)."""
+        """PLC giả bật trigger lên 1 (bit hoặc thanh ghi word, báo 1 lần chạy)."""
         with self._lock:
-            self._bits[device.upper()] = 1
+            if is_word_device(device):
+                self._words[device.upper()] = 1
+            else:
+                self._bits[device.upper()] = 1
 
 
 def make_plc_client(cfg, side_cfg):

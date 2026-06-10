@@ -40,6 +40,23 @@ DEVICE_CODES = {
     'B': (0xA0, True),    # Link relay
 }
 
+# Tiền tố các thiết bị WORD (đọc/ghi theo GIÁ TRỊ, vd D100); còn lại là BIT.
+WORD_DEVICE_PREFIXES = {name for name, (_c, is_bit) in DEVICE_CODES.items()
+                        if not is_bit}
+
+
+def is_word_device(device):
+    """True nếu 'device' là thanh ghi WORD (D/W/R...), False nếu BIT (M/X/Y...).
+
+    Worker dùng hàm này để TỰ chọn đọc/ghi theo word hay bit cho trigger/done.
+    Tiền tố lạ -> coi là BIT (giữ hành vi cũ, an toàn).
+    """
+    d = (device or "").strip().upper()
+    i = 0
+    while i < len(d) and not d[i].isdigit():
+        i += 1
+    return d[:i] in WORD_DEVICE_PREFIXES
+
 
 class MitsubishiPLC:
     """Kết nối tới PLC Mitsubishi FX5U qua MC Protocol 3E (binary, TCP)."""

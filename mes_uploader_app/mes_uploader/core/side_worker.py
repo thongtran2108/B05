@@ -31,6 +31,7 @@ import time
 
 from .. import data_reader, image_uploader, mes_api
 from ..config import side_addresses, head_count, head_api, head_image
+from ..hardware.mitsubishi_plc import is_word_device
 from ..hardware.plc_client import MockPlcClient
 from ..i18n import tr
 
@@ -181,7 +182,7 @@ class SideWorker:
                         if self._state == ST_RUNNING:
                             trig, _ = side_addresses(side_cfg, head_type)
                     if self._state == ST_RUNNING:
-                        prev_trig = self._safe_read_bit(trig)
+                        prev_trig = self._safe_read_signal(trig)
                         if prev_trig is None:
                             prev_trig = 1
                 time.sleep(interval)
@@ -189,13 +190,13 @@ class SideWorker:
 
             # --- Đang chạy: poll trigger, bắt sườn lên ---
             trig, done = side_addresses(side_cfg, head_type)
-            cur = self._safe_read_bit(trig)
+            cur = self._safe_read_signal(trig)
             if cur is None:                  # lỗi PLC -> thử lại vòng sau
                 time.sleep(interval)
                 continue
             if prev_trig == 0 and cur == 1:
                 self._handle_one_run(side_cfg, head_type, trig, done)
-                nxt = self._safe_read_bit(trig)
+                nxt = self._safe_read_signal(trig)
                 prev_trig = 0 if nxt is None else nxt
             else:
                 prev_trig = cur
@@ -397,9 +398,9 @@ class SideWorker:
         (PLC pulse trigger rồi chờ app reset). Vẫn ghi bit 'done' để tương thích
         PLC nào dùng bắt tay 2 bit.
         """
-        self._safe_write_bit(done, 1)
-        self._safe_write_bit(trig, 0)        # reset tín hiệu trigger đã nhận về 0
-        self._safe_write_bit(done, 0)
+        self._safe_write_signal(done, 1)
+        self._safe_write_signal(trig, 0)     # reset tín hiệu trigger đã nhận về 0
+        self._safe_write_signal(done, 0)
 
     def _finish(self, sn, readings, head_type):
         api = self.cfg.api
@@ -453,10 +454,13 @@ class SideWorker:
             self._emit("plc", connected=False)
             self._emit("log", text=tr("Không kết nối được PLC: %s") % ex)
 
-    def _safe_read_bit(self, device):
+    def _safe_read_signal(self, device):
+        """Đọc trigger/done: bit (M...) -> 0/1; word (D...) -> coi giá trị !=0
+        là 'bật' (trả 1), =0 là 'tắt' (trả 0). Lỗi -> None (thử kết nối lại)."""
         try:
-            v = self.plc.read_bit(device)
-            return 1 if v else 0
+            if is_word_device(device):
+                return 1 if self.plc.read_word(device) else 0
+            return 1 if self.plc.read_bit(device) else 0
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
             self._emit("log", text=tr("Lỗi đọc PLC %s: %s") % (device, ex))
@@ -467,9 +471,13 @@ class SideWorker:
                 pass
             return None
 
-    def _safe_write_bit(self, device, value):
+    def _safe_write_signal(self, device, value):
+        """Ghi trigger/done: word (D...) -> write_word(0/1); bit -> write_bit."""
         try:
-            self.plc.write_bit(device, value)
+            if is_word_device(device):
+                self.plc.write_word(device, 1 if value else 0)
+            else:
+                self.plc.write_bit(device, 1 if value else 0)
             return True
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
