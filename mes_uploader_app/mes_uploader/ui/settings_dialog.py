@@ -211,7 +211,7 @@ class SettingsDialog(QDialog):
                               "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
                               "CHẶN, không tải lên).")))
         form.addRow(QLabel(tr("POST body: sn + stationName (theo loại đầu) + empNo "
-                              "+ timer (dataNN_LM:giá trị).")))
+                              "+ timer (L1: v1 - v2 - ...; L2: ...).")))
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
         return scroll

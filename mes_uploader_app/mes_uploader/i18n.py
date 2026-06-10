@@ -312,9 +312,9 @@ _TR = {
         "en": "e.g. STATION-4X (a different name per head type)",
         "zh": "例如 STATION-4X (每种探头类型一个不同名称)",
     },
-    "POST body: sn + stationName (theo loại đầu) + empNo + timer (dataNN_LM:giá trị).": {
-        "en": "POST body: sn + stationName (per head type) + empNo + timer (dataNN_LM:value).",
-        "zh": "POST 请求体：sn + stationName (按探头类型) + empNo + timer (dataNN_LM:数值)。",
+    "POST body: sn + stationName (theo loại đầu) + empNo + timer (L1: v1 - v2 - ...; L2: ...).": {
+        "en": "POST body: sn + stationName (per head type) + empNo + timer (L1: v1 - v2 - ...; L2: ...).",
+        "zh": "POST 请求体：sn + stationName (按探头类型) + empNo + timer (L1: v1 - v2 - ...; L2: ...)。",
     },
     "Bật kiểm tra SN bằng GET": {
         "en": "Enable SN check via GET", "zh": "启用通过 GET 检查 SN"},

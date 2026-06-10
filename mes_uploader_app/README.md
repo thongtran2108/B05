@@ -23,7 +23,7 @@ Lặp N lần  (N = số đầu của loại đã chọn theo mã liệu):
         │
         ▼
 Đủ N đầu  ->  GỘP dữ liệu  ->  POST 1 lần lên MES
-   JSON: { "sn": "...", "stationName": "...", "empNo": "...", "timer": "dataNN_LM:..." }
+   JSON: { "sn": "...", "stationName": "...", "empNo": "...", "timer": "L1: v1 - v2 - ...; L2: ..." }
         │
         ▼
 Hiện kết quả  ->  quay lại chờ quét SN tiếp theo
@@ -188,7 +188,7 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
   "sn": "SN123",
   "stationName": "STATION-8X",
   "empNo": "V3081479",
-  "timer": "data01_L1:26.321; …; data146_L1:2.48; data01_L2:22.8; …; data146_L2:10.1"
+  "timer": "L1: 24.8 - 22.831 - … - 0.818; L2: 22.8 - … - 10.1"
 }
 ```
 
@@ -196,11 +196,12 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 - `stationName` = tên trạm theo **loại đầu** đang chạy (4X / 8X / 16X mỗi loại
   một tên — đặt trong `Setting > API MES > "API đầu …" > Tên trạm`).
 - `empNo` = mã nhân viên (dùng chung, đặt ở `Setting > API MES > Mã nhân viên`).
-- `timer` = **toàn bộ giá trị đo** của các đầu ghép thành 1 chuỗi, mỗi phần tử
-  `dataNN_LM:giá_trị` cách nhau `"; "`:
+- `timer` = **toàn bộ giá trị đo** của các đầu, mỗi lần đọc là 1 nhóm
+  `L<M>: v1 - v2 - … - vN`:
   - `M` = thứ tự lần đọc (đầu), bắt đầu từ 1 → `L1`, `L2`, …
-  - `NN` = thứ tự giá trị đo, bắt đầu từ 1, tối thiểu 2 chữ số (`01`, `02`, … `146`).
-  - Ví dụ 2 đầu 8X: `data01_L1:…; …; data146_L1:…; data01_L2:…; …; data146_L2:…`.
+  - các **giá trị trong 1 đầu** cách nhau bằng `" - "`; các **nhóm (đầu)** cách
+    nhau bằng `"; "`.
+  - Ví dụ 2 đầu 8X: `L1: 24.8 - 22.831 - … - 0.818; L2: 22.8 - … - 10.1`.
 - **POST thành công** ⇔ HTTP 2xx **và** body CHỨA `post_ok_contains` (mặc định
   "200"). Để trống `post_ok_contains` → chỉ cần HTTP 2xx. Body không khớp →
   báo "gửi lỗi" (banner hổ phách, cột MES `✗`).

@@ -87,7 +87,7 @@ def main():
     assert payload["stationName"] == "STATION-8X", "stationName theo API đầu 8X"
     assert payload["empNo"] == "V3081479", "empNo dùng chung từ ApiConfig"
     # timer gộp đúng 2 đầu (có L1 và L2)
-    assert "data01_L1:" in payload["timer"] and "data01_L2:" in payload["timer"]
+    assert payload["timer"].startswith("L1: ") and "; L2: " in payload["timer"]
     assert results and results[-1]["sn"] == "SN-LEFT-001"
     # tín hiệu trigger 8X bên trái (M100) phải được app ghi lại = 0 sau khi nhận
     assert plc.read_bit("M100") == 0, "trigger nhận xong phải được reset về 0"

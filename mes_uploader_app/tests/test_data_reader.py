@@ -52,16 +52,17 @@ def main():
     assert payload["empNo"] == "V3081479"
     # payload chỉ gồm đúng 4 trường theo yêu cầu MES
     assert set(payload) == {"sn", "stationName", "empNo", "timer"}
-    # timer: dataNN_LM cho cả 2 đầu, đánh số tối thiểu 2 chữ số
+    # timer: mỗi đầu 1 nhóm "L<M>: v1 - v2 - ... - vN", các nhóm cách nhau "; "
     timer = payload["timer"]
-    assert timer.startswith("data01_L1:")
-    assert ("data%02d_L1:" % n1) in timer          # giá trị cuối của đầu 1
-    assert "data01_L2:" in timer                    # bắt đầu đầu 2
-    assert ("data%02d_L2:" % n1) in timer           # giá trị cuối của đầu 2
-    # tổng số phần tử = số đầu × số giá trị mỗi đầu
-    assert len(timer.split("; ")) == 2 * n1
-    # giá trị đầu tiên khớp dữ liệu đọc được
-    assert timer.split("; ")[0] == "data01_L1:%s" % mes_api._fmt_value(r1["values"][0])
+    blocks = timer.split("; ")
+    assert len(blocks) == 2, "2 đầu -> 2 nhóm L1/L2"
+    assert blocks[0].startswith("L1: ") and blocks[1].startswith("L2: ")
+    vals1 = blocks[0][len("L1: "):].split(" - ")
+    vals2 = blocks[1][len("L2: "):].split(" - ")
+    assert len(vals1) == n1 and len(vals2) == n1   # đủ số giá trị mỗi đầu
+    # giá trị đầu/cuối khớp dữ liệu đọc được
+    assert vals1[0] == mes_api._fmt_value(r1["values"][0])
+    assert vals1[-1] == mes_api._fmt_value(r1["values"][-1])
 
     # stationName / empNo mặc định rỗng khi không truyền
     print("\n== build_payload mặc định (không truyền stationName/empNo) ==")

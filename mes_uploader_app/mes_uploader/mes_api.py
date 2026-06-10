@@ -7,8 +7,8 @@ Theo yêu cầu:
       sn          : mã quét từ tay scan
       stationName : tên trạm theo loại đầu (4X / 8X / 16X mỗi loại 1 tên)
       empNo       : mã nhân viên
-      timer       : toàn bộ giá trị đo của các đầu, ghép thành 1 chuỗi
-                    "dataNN_LM:giá_trị" (xem build_timer)
+      timer       : toàn bộ giá trị đo của các đầu, ghép thành 1 chuỗi dạng
+                    "L1: v1 - v2 - ...; L2: ..." (xem build_timer)
 """
 
 import time
@@ -46,18 +46,18 @@ def _fmt_value(value):
 def build_timer(readings):
     """Ghép giá trị đo của tất cả các đầu thành 1 chuỗi cho trường "timer".
 
-    Định dạng từng phần tử: "dataNN_LM:giá_trị", ghép lại bằng "; ".
-      - M  = thứ tự lần đọc (đầu), bắt đầu từ 1  -> L1, L2, ...
-      - NN = thứ tự giá trị đo, bắt đầu từ 1, tối thiểu 2 chữ số (01, 02, .. 146)
+    Mỗi lần đọc (đầu) là 1 nhóm "L<M>: v1 - v2 - ... - vN":
+      - M  = thứ tự lần đọc, bắt đầu từ 1 (L1, L2, ...)
+      - các giá trị đo trong 1 đầu cách nhau bằng " - "
+      - các nhóm (đầu) cách nhau bằng "; "
 
     Ví dụ 2 lần nhận dữ liệu 8X:
-      data01_L1:26.321; ...; data146_L1:2.48; data01_L2:22.8; ...; data146_L2:10.1
+        L1: 24.8 - 22.831 - ... - 0.818; L2: 22.8 - ... - 10.1
     """
     parts = []
     for read_idx, r in enumerate(readings, start=1):
-        for data_idx, value in enumerate(r.get("values", []), start=1):
-            parts.append("data%02d_L%d:%s"
-                         % (data_idx, read_idx, _fmt_value(value)))
+        vals = " - ".join(_fmt_value(v) for v in r.get("values", []))
+        parts.append("L%d: %s" % (read_idx, vals))
     return "; ".join(parts)
 
 
