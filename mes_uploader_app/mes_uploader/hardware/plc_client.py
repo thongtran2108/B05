@@ -59,6 +59,16 @@ class PlcClient:
             self._ensure_locked()
             return self._plc.write_bit(device, value)
 
+    def read_word(self, device):
+        with self._lock:
+            self._ensure_locked()
+            return self._plc.read_word(device)
+
+    def write_word(self, device, value):
+        with self._lock:
+            self._ensure_locked()
+            return self._plc.write_word(device, value)
+
     def _ensure_locked(self):
         if not (self._plc is not None and self._plc.sock is not None):
             self._plc = MitsubishiPLC(self.ip, self.port, self.timeout)
@@ -74,6 +84,7 @@ class MockPlcClient:
 
     def __init__(self, *args, **kwargs):
         self._bits = {}
+        self._words = {}
         self._lock = threading.Lock()
         self._connected = False
 
@@ -95,6 +106,15 @@ class MockPlcClient:
     def write_bit(self, device, value):
         with self._lock:
             self._bits[device.upper()] = 1 if value else 0
+        return True
+
+    def read_word(self, device):
+        with self._lock:
+            return self._words.get(device.upper(), 0)
+
+    def write_word(self, device, value):
+        with self._lock:
+            self._words[device.upper()] = int(value) & 0xFFFF
         return True
 
     # --- dành cho nút "giả lập tín hiệu PLC" trên giao diện ---

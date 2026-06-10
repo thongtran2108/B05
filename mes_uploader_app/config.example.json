@@ -2,7 +2,6 @@
   "language": "vi",
   "simulation": true,
   "poll_interval_ms": 200,
-  "handshake_timeout_s": 10.0,
   "plc": {
     "ip": "192.168.1.250",
     "port": 5000,
@@ -82,6 +81,7 @@
     "done_8x": "M101",
     "trig_16x": "M110",
     "done_16x": "M111",
+    "sn_result_reg": "D100",
     "plc_ip": "",
     "plc_port": 0
   },
@@ -96,6 +96,7 @@
     "done_8x": "M201",
     "trig_16x": "M210",
     "done_16x": "M211",
+    "sn_result_reg": "D200",
     "plc_ip": "",
     "plc_port": 0
   },

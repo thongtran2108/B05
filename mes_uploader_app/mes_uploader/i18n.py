@@ -254,10 +254,6 @@ _TR = {
         "zh": "模拟模式 (无需 PLC / 扫码枪)",
     },
     "Chu kỳ đọc PLC:": {"en": "PLC poll interval:", "zh": "PLC 轮询周期："},
-    "Timeout chờ PLC nhả trigger:": {
-        "en": "Timeout waiting for PLC to release trigger:",
-        "zh": "等待 PLC 释放触发的超时：",
-    },
     "Chọn…": {"en": "Browse…", "zh": "选择…"},
     "Thư mục gốc dữ liệu:": {"en": "Data root folder:", "zh": "数据根目录："},
     "Thư mục con 4X:": {"en": "4X subfolder:", "zh": "4X 子目录："},
@@ -385,6 +381,16 @@ _TR = {
     "Bit done 8X:": {"en": "8X done bit:", "zh": "8X 完成位："},
     "Bit trigger 16X:": {"en": "16X trigger bit:", "zh": "16X 触发位："},
     "Bit done 16X:": {"en": "16X done bit:", "zh": "16X 完成位："},
+    "Thanh ghi kết quả SN (1=OK/2=NG):": {
+        "en": "SN result register (1=OK/2=NG):", "zh": "SN 结果寄存器 (1=OK/2=NG)："},
+    "vd D100 — ghi 1=OK / 2=NG (để trống = không ghi)": {
+        "en": "e.g. D100 — write 1=OK / 2=NG (empty = no write)",
+        "zh": "例如 D100 — 写入 1=OK / 2=NG (留空 = 不写)",
+    },
+    "  Ghi kết quả SN về PLC %s = %d": {
+        "en": "  Wrote SN result to PLC %s = %d",
+        "zh": "  已写入 SN 结果到 PLC %s = %d",
+    },
     "PLC IP riêng (trống = chung):": {
         "en": "Dedicated PLC IP (empty = shared):", "zh": "独立 PLC IP (留空 = 公共)："},
     "PLC Port riêng (0 = chung):": {

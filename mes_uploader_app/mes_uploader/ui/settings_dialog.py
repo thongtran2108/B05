@@ -122,11 +122,6 @@ class SettingsDialog(QDialog):
         self.spn_poll.setSuffix(" ms")
         form.addRow(tr("Chu kỳ đọc PLC:"), self.spn_poll)
 
-        self.spn_hs = QDoubleSpinBox(); self.spn_hs.setRange(0.5, 120)
-        self.spn_hs.setValue(self.cfg.handshake_timeout_s)
-        self.spn_hs.setSuffix(" s")
-        form.addRow(tr("Timeout chờ PLC nhả trigger:"), self.spn_hs)
-
         # đường dẫn
         self.txt_base = QLineEdit(self.cfg.paths.base_dir)
         browse = QPushButton(tr("Chọn…"))
@@ -316,6 +311,8 @@ class SettingsDialog(QDialog):
         t4 = QLineEdit(side.trig_4x); d4 = QLineEdit(side.done_4x)
         t8 = QLineEdit(side.trig_8x); d8 = QLineEdit(side.done_8x)
         t16 = QLineEdit(side.trig_16x); d16 = QLineEdit(side.done_16x)
+        snr = QLineEdit(side.sn_result_reg)
+        snr.setPlaceholderText(tr("vd D100 — ghi 1=OK / 2=NG (để trống = không ghi)"))
         pip = QLineEdit(side.plc_ip)
         pport = QSpinBox(); pport.setRange(0, 65535); pport.setValue(side.plc_port)
 
@@ -328,6 +325,7 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Bit done 8X:"), d8)
         form.addRow(tr("Bit trigger 16X:"), t16)
         form.addRow(tr("Bit done 16X:"), d16)
+        form.addRow(tr("Thanh ghi kết quả SN (1=OK/2=NG):"), snr)
         form.addRow(tr("PLC IP riêng (trống = chung):"), pip)
         form.addRow(tr("PLC Port riêng (0 = chung):"), pport)
 
@@ -336,7 +334,7 @@ class SettingsDialog(QDialog):
             "scanner_port": port, "scanner_baud": baud, "ccd_prefix": ccd,
             "trig_4x": t4, "done_4x": d4,
             "trig_8x": t8, "done_8x": d8, "trig_16x": t16, "done_16x": d16,
-            "plc_ip": pip, "plc_port": pport,
+            "sn_result_reg": snr, "plc_ip": pip, "plc_port": pport,
         })
         return w
 
@@ -460,7 +458,6 @@ class SettingsDialog(QDialog):
         c.language = self.cbo_lang.currentData() or getattr(c, "language", "vi")
         c.simulation = self.chk_sim.isChecked()
         c.poll_interval_ms = self.spn_poll.value()
-        c.handshake_timeout_s = self.spn_hs.value()
 
         c.paths.base_dir = self.txt_base.text().strip()
         c.paths.sub_4x = self.txt_sub4.text().strip()
@@ -521,6 +518,7 @@ class SettingsDialog(QDialog):
             side.done_8x = ws["done_8x"].text().strip()
             side.trig_16x = ws["trig_16x"].text().strip()
             side.done_16x = ws["done_16x"].text().strip()
+            side.sn_result_reg = ws["sn_result_reg"].text().strip()
             side.plc_ip = ws["plc_ip"].text().strip()
             side.plc_port = ws["plc_port"].value()
 

@@ -19,7 +19,7 @@ Quét SN bằng tay scan của bên đó  (Trái = CCD1, Phải = CCD2)
 Lặp N lần  (N = số đầu của loại đã chọn theo mã liệu):
    • PLC bật bit trigger (0 -> 1)  → app đọc DÒNG MỚI NHẤT trong file
    • theo kết quả OK/NG → lấy ẢNH MỚI NHẤT (OK/NG) và tải lên link đích (nền)
-   • app ghi bit "done" = 1 báo hoàn thành về PLC → chờ PLC nhả trigger → hạ done
+   • app ghi bit "done" = 1 → RESET bit trigger đã nhận về 0 → hạ done
         │
         ▼
 Đủ N đầu  ->  GỘP dữ liệu  ->  POST 1 lần lên MES
@@ -129,11 +129,16 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 | `done_8x`  | app ghi =1 báo "hoàn thành" 8X về PLC    | M101 | M201 |
 | `trig_16x` | PLC bật =1 báo "chạy" đầu 16X            | M110 | M210 |
 | `done_16x` | app ghi =1 báo "hoàn thành" 16X về PLC   | M111 | M211 |
+| `sn_result_reg` | app ghi **kết quả kiểm tra SN**: `1`=OK, `2`=NG (thanh ghi word, vd `D100`/`D200`; trống = không ghi) | D100 | D200 |
 
 - 1 PLC dùng chung 2 bên (IP/Port ở tab **PLC**). Nếu dùng **2 PLC riêng**, đặt
   `plc_ip` / `plc_port` trong tab từng bên.
-- Bắt tay: app phát hiện **sườn lên** của bit trigger → đọc dữ liệu → ghi `done=1`
-  → chờ PLC hạ trigger về 0 → hạ `done=0` → sẵn sàng cho đầu tiếp theo.
+- Bắt tay: app phát hiện **sườn lên** của bit trigger → đọc dữ liệu → ghi
+  `done=1` → **RESET bit trigger đã nhận về 0** → hạ `done=0` → sẵn sàng cho đầu
+  tiếp theo. (App tự ghi trigger về 0 sau khi nhận — PLC pulse trigger rồi chờ
+  app reset.)
+- **Kiểm tra SN (GET)** xong, app ghi kết quả về `sn_result_reg`: **OK→1, NG→2**
+  (xem mục API). Để PLC biết SN có hợp lệ để chạy hay không.
 
 ---
 

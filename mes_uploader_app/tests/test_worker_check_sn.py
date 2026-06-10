@@ -35,6 +35,7 @@ def main():
     cfg.api.api_8x.check_url_prefix = "http://mes/check?sn="
     cfg.api.api_8x.check_ok_value = "0"
     cfg.api.api_8x.post_ok_contains = "200"
+    cfg.left.sn_result_reg = "D100"           # ghi kết quả SN về PLC: 1=OK, 2=NG
 
     # GET giả: chỉ SN 'GOOD' hợp lệ
     def fake_check(sn, prefix, suffix="", ok_value="0", **kw):
@@ -66,7 +67,8 @@ def main():
     assert rejected and rejected[-1]["sn"] == "BADSN", "SN xấu phải bị chặn"
     assert w._state == ST_WAIT_SCAN, "SN xấu -> phải ở lại chờ quét"
     assert posted["n"] == 0, "SN xấu -> tuyệt đối không POST"
-    print("1) SN xấu BADSN bị chặn, ở lại chờ quét, chưa POST ✔")
+    assert w.plc.read_word("D100") == 2, "SN NG -> ghi 2 về PLC"
+    print("1) SN xấu BADSN bị chặn -> ghi PLC=2, ở lại chờ quét, chưa POST ✔")
 
     # 2) SN tốt -> chạy, POST
     w.submit_sn("GOOD")
@@ -76,7 +78,10 @@ def main():
     results = [d for (t, d) in events if t == "result"]
     assert posted["n"] == 1 and posted["sn"] == "GOOD", "SN tốt phải POST 1 lần"
     assert results and results[-1]["ok"] is True
-    print("2) SN tốt GOOD chạy đủ đầu -> POST thành công ✔")
+    assert w.plc.read_word("D100") == 1, "SN OK -> ghi 1 về PLC"
+    # tín hiệu trigger 8X (M100) đã được reset về 0 sau khi nhận
+    assert w.plc.read_bit("M100") == 0, "trigger nhận xong phải được ghi lại = 0"
+    print("2) SN tốt GOOD -> ghi PLC=1, chạy đủ đầu -> POST, trigger reset 0 ✔")
 
     w.stop()
     print("\nTEST WORKER-CHECK-SN PASS ✔")

@@ -48,6 +48,10 @@ class SideConfig:
     trig_16x: str = "M110"
     done_16x: str = "M111"
 
+    # Thanh ghi (word) ghi KẾT QUẢ kiểm tra SN về PLC: 1 = OK, 2 = NG.
+    # vd "D100". Để trống = không ghi.
+    sn_result_reg: str = ""
+
     # PLC riêng cho bên này (để trống = dùng PLC chung trong PlcConfig)
     plc_ip: str = ""
     plc_port: int = 0
@@ -166,7 +170,6 @@ class AppConfig:
     language: str = "vi"             # ngôn ngữ giao diện: "vi" | "zh" | "en"
     simulation: bool = True          # True = chạy giả lập, không cần phần cứng
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
-    handshake_timeout_s: float = 10.0  # thời gian chờ PLC nhả trigger sau khi done
 
     plc: PlcConfig = field(default_factory=PlcConfig)
     api: ApiConfig = field(default_factory=ApiConfig)

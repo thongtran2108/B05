@@ -5,12 +5,14 @@ Lưu trình (giống nhau cho cả 2 bên, nhưng độc lập):
 
   1. Người dùng chọn mã liệu + loại đầu (8X / 16X) rồi bấm "Bắt đầu" (arm).
   2. Quét SN bằng tay scan của bên đó  -> submit_sn(sn).
-  2b. KIỂM TRA SN bằng GET (nếu bật): body phải CHỨA chuỗi cho phép thì mới
-      chạy; nếu không -> CHẶN, báo lỗi, chờ quét mã khác.
+  2b. KIỂM TRA SN bằng GET (nếu bật): body phải BẰNG ĐÚNG chuỗi cho phép thì
+      mới chạy; nếu không -> CHẶN, báo lỗi, chờ quét mã khác. Kết quả kiểm tra
+      được ghi về PLC: OK = 1, NG = 2 (nếu có cấu hình thanh ghi).
   3. Số lần chạy = số đầu của loại đã chọn (vd ABC có 2 đầu 8X -> 2 lần).
   4. Mỗi lần PLC bật bit trigger (sườn lên 0->1):
         - đọc DÒNG MỚI NHẤT trong file của bên (CCD1 trái / CCD2 phải)
-        - ghi bit 'done' = 1 báo hoàn thành về PLC, chờ PLC nhả trigger, hạ done
+        - ghi bit 'done' = 1 báo hoàn thành về PLC; RESET tín hiệu trigger đã
+          nhận về 0; hạ done = 0
   5. Khi đủ số đầu -> GỘP dữ liệu -> POST 1 lần lên MES (chỉ thành công khi
      body chứa chuỗi mong đợi) -> quay lại chờ quét.
 
@@ -37,6 +39,10 @@ from ..i18n import tr
 ST_IDLE = "IDLE"            # chưa bật (chưa arm)
 ST_WAIT_SCAN = "WAIT_SCAN"  # đã bật, đang chờ quét SN
 ST_RUNNING = "RUNNING"      # đã có SN, đang chờ/tiếp nhận tín hiệu chạy
+
+# Giá trị ghi về PLC cho kết quả kiểm tra SN (theo yêu cầu: OK=1, NG=2)
+SN_RESULT_OK = 1
+SN_RESULT_NG = 2
 
 
 class SideWorker:
@@ -207,7 +213,10 @@ class SideWorker:
             return
 
         # --- Bước 2b: kiểm tra SN bằng GET trước khi cho chạy (theo API loại đầu) ---
-        if not self._check_sn(sn, head_type):
+        sn_ok = self._check_sn(sn, head_type)
+        # ghi kết quả kiểm tra SN về PLC: OK = 1, NG = 2 (nếu có cấu hình thanh ghi)
+        self._write_sn_result(side_cfg, sn_ok)
+        if not sn_ok:
             return        # SN không hợp lệ -> ở lại WAIT_SCAN, chờ quét mã khác
 
         with self._lock:
@@ -369,18 +378,27 @@ class SideWorker:
         else:
             self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % msg)
 
+    def _write_sn_result(self, side_cfg, ok):
+        """Ghi kết quả kiểm tra SN về PLC: OK -> 1, NG -> 2.
+
+        Chỉ ghi khi bên này có cấu hình thanh ghi (side_cfg.sn_result_reg).
+        """
+        reg = (getattr(side_cfg, "sn_result_reg", "") or "").strip()
+        if not reg:
+            return
+        value = SN_RESULT_OK if ok else SN_RESULT_NG
+        if self._safe_write_word(reg, value):
+            self._emit("log", text=tr("  Ghi kết quả SN về PLC %s = %d") % (reg, value))
+
     def _handshake_done(self, trig, done):
-        """Ghi done=1 báo hoàn thành; chờ PLC nhả trigger; hạ done=0."""
+        """Báo done về PLC rồi RESET tín hiệu trigger đã nhận về 0.
+
+        Theo yêu cầu: tín hiệu nhận từ PLC, sau khi nhận xong, app GHI LẠI = 0
+        (PLC pulse trigger rồi chờ app reset). Vẫn ghi bit 'done' để tương thích
+        PLC nào dùng bắt tay 2 bit.
+        """
         self._safe_write_bit(done, 1)
-        if self.cfg.simulation:
-            self._safe_write_bit(trig, 0)    # PLC giả nhả tín hiệu
-        else:
-            t0 = time.time()
-            while (time.time() - t0 < self.cfg.handshake_timeout_s
-                   and not self._stop.is_set()):
-                if self._safe_read_bit(trig) == 0:
-                    break
-                time.sleep(max(0.02, self.cfg.poll_interval_ms / 1000.0))
+        self._safe_write_bit(trig, 0)        # reset tín hiệu trigger đã nhận về 0
         self._safe_write_bit(done, 0)
 
     def _finish(self, sn, readings, head_type):
@@ -452,6 +470,15 @@ class SideWorker:
     def _safe_write_bit(self, device, value):
         try:
             self.plc.write_bit(device, value)
+            return True
+        except Exception as ex:              # noqa: BLE001
+            self._emit("plc", connected=False)
+            self._emit("log", text=tr("Lỗi ghi PLC %s: %s") % (device, ex))
+            return False
+
+    def _safe_write_word(self, device, value):
+        try:
+            self.plc.write_word(device, value)
             return True
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
