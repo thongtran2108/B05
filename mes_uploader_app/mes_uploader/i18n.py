@@ -289,6 +289,20 @@ _TR = {
         "en": "Each side may set its own IP/Port in the Left/Right tab.",
         "zh": "每一侧可在 左侧/右侧 标签页设置各自的 IP/端口。",
     },
+    "Test kết nối PLC": {"en": "Test PLC connection", "zh": "测试 PLC 连接"},
+    "vd D4206 (word) hoặc M100 (bit)": {
+        "en": "e.g. D4206 (word) or M100 (bit)", "zh": "例如 D4206 (word) 或 M100 (bit)"},
+    "Test đọc PLC": {"en": "Test read PLC", "zh": "测试读取 PLC"},
+    "Đọc thử thanh ghi:": {"en": "Test-read register:", "zh": "试读寄存器："},
+    "Test PLC": {"en": "Test PLC", "zh": "测试 PLC"},
+    "Kết nối %s:%d OK.\nĐọc %s = %s": {
+        "en": "Connected %s:%d OK.\nRead %s = %s",
+        "zh": "连接 %s:%d 成功。\n读取 %s = %s",
+    },
+    "Lỗi đọc %s từ %s:%d:\n%s": {
+        "en": "Error reading %s from %s:%d:\n%s",
+        "zh": "读取 %s 出错 (从 %s:%d)：\n%s",
+    },
 
     # ----- Setting: tab API -----
     "Kết nối chung (mọi loại đầu)": {

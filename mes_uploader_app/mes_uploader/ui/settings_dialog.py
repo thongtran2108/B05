@@ -173,7 +173,40 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Port:"), self.spn_plc_port)
         form.addRow(tr("Timeout:"), self.spn_plc_to)
         form.addRow(QLabel(tr("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải.")))
+
+        # --- Test kết nối/đọc thử 1 thanh ghi ---
+        form.addRow(_section(tr("Test kết nối PLC")))
+        self.txt_plc_test = QLineEdit("D4206")
+        self.txt_plc_test.setPlaceholderText(tr("vd D4206 (word) hoặc M100 (bit)"))
+        btn_test = QPushButton(tr("Test đọc PLC"))
+        btn_test.clicked.connect(self._test_plc)
+        h = QHBoxLayout(); h.addWidget(self.txt_plc_test, 1); h.addWidget(btn_test)
+        hw = QWidget(); hw.setLayout(h)
+        form.addRow(tr("Đọc thử thanh ghi:"), hw)
         return w
+
+    def _test_plc(self):
+        """Kết nối + đọc thử 1 thanh ghi với IP/Port đang nhập, hiện kết quả."""
+        from ..hardware.plc_client import PlcClient
+        from ..hardware.mitsubishi_plc import is_word_device
+        ip = self.txt_plc_ip.text().strip()
+        port = self.spn_plc_port.value()
+        dev = (self.txt_plc_test.text().strip() or "D0")
+        cli = PlcClient(ip, port, self.spn_plc_to.value())
+        try:
+            val = cli.read_word(dev) if is_word_device(dev) else cli.read_bit(dev)
+            QMessageBox.information(
+                self, tr("Test PLC"),
+                tr("Kết nối %s:%d OK.\nĐọc %s = %s") % (ip, port, dev, val))
+        except Exception as ex:               # noqa: BLE001
+            QMessageBox.critical(
+                self, tr("Test PLC"),
+                tr("Lỗi đọc %s từ %s:%d:\n%s") % (dev, ip, port, ex))
+        finally:
+            try:
+                cli.close()
+            except Exception:                 # noqa: BLE001
+                pass
 
     # ------------------------------------------------------------------ #
     #  Tab API                                                            #
