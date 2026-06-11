@@ -169,15 +169,26 @@ class SettingsDialog(QDialog):
         self.spn_plc_port.setValue(self.cfg.plc.port)
         self.spn_plc_to = QDoubleSpinBox(); self.spn_plc_to.setRange(0.2, 30)
         self.spn_plc_to.setValue(self.cfg.plc.timeout); self.spn_plc_to.setSuffix(" s")
+        self.cbo_proto = QComboBox()
+        self.cbo_proto.addItem("Mitsubishi SLMP", "slmp")
+        self.cbo_proto.addItem("Modbus TCP", "modbus")
+        ip_ = self.cbo_proto.findData(getattr(self.cfg.plc, "protocol", "slmp"))
+        self.cbo_proto.setCurrentIndex(ip_ if ip_ >= 0 else 0)
         self.cbo_plc_code = QComboBox()
         self.cbo_plc_code.addItem("Binary", False)
         self.cbo_plc_code.addItem("ASCII", True)
         self.cbo_plc_code.setCurrentIndex(1 if getattr(self.cfg.plc, "ascii_mode", False) else 0)
+        self.spn_modbus_unit = QSpinBox(); self.spn_modbus_unit.setRange(0, 255)
+        self.spn_modbus_unit.setValue(getattr(self.cfg.plc, "modbus_unit", 255))
+        form.addRow(tr("Giao thức:"), self.cbo_proto)
         form.addRow(tr("IP PLC chung:"), self.txt_plc_ip)
         form.addRow(tr("Port:"), self.spn_plc_port)
         form.addRow(tr("Timeout:"), self.spn_plc_to)
-        form.addRow(tr("Định dạng dữ liệu (Data Code):"), self.cbo_plc_code)
-        form.addRow(QLabel(tr("Binary/ASCII phải KHỚP cấu hình SLMP trên PLC.")))
+        form.addRow(tr("Data Code (SLMP):"), self.cbo_plc_code)
+        form.addRow(tr("Modbus Unit ID:"), self.spn_modbus_unit)
+        form.addRow(QLabel(tr("SLMP: Binary/ASCII phải KHỚP PLC. Modbus: Port "
+                              "thường 502; D…→Holding Register, M…→Coil (số = địa "
+                              "chỉ Modbus).")))
         form.addRow(QLabel(tr("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải.")))
 
         # --- Test kết nối/đọc thử 1 thanh ghi ---
@@ -192,14 +203,19 @@ class SettingsDialog(QDialog):
         return w
 
     def _test_plc(self):
-        """Kết nối + đọc thử 1 thanh ghi với IP/Port đang nhập, hiện kết quả."""
+        """Kết nối + đọc thử 1 thanh ghi với IP/Port/giao thức đang chọn."""
         from ..hardware.plc_client import PlcClient
         from ..hardware.mitsubishi_plc import is_word_device
         ip = self.txt_plc_ip.text().strip()
         port = self.spn_plc_port.value()
         dev = (self.txt_plc_test.text().strip() or "D0")
-        cli = PlcClient(ip, port, self.spn_plc_to.value(),
-                        ascii_mode=bool(self.cbo_plc_code.currentData()))
+        if self.cbo_proto.currentData() == "modbus":
+            from ..hardware.modbus_tcp import ModbusTcpClient
+            cli = ModbusTcpClient(ip, port, self.spn_plc_to.value(),
+                                  unit=self.spn_modbus_unit.value())
+        else:
+            cli = PlcClient(ip, port, self.spn_plc_to.value(),
+                            ascii_mode=bool(self.cbo_plc_code.currentData()))
         try:
             val = cli.read_word(dev) if is_word_device(dev) else cli.read_bit(dev)
             QMessageBox.information(
@@ -519,7 +535,9 @@ class SettingsDialog(QDialog):
         c.plc.ip = self.txt_plc_ip.text().strip()
         c.plc.port = self.spn_plc_port.value()
         c.plc.timeout = self.spn_plc_to.value()
+        c.plc.protocol = self.cbo_proto.currentData() or "slmp"
         c.plc.ascii_mode = bool(self.cbo_plc_code.currentData())
+        c.plc.modbus_unit = self.spn_modbus_unit.value()
 
         c.api.timeout = self.spn_api_to.value()
         c.api.retries = self.spn_retries.value()

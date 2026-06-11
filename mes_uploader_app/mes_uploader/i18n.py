@@ -291,6 +291,13 @@ _TR = {
     },
     "Định dạng dữ liệu (Data Code):": {
         "en": "Data code:", "zh": "数据格式 (Data Code)："},
+    "Giao thức:": {"en": "Protocol:", "zh": "协议："},
+    "Data Code (SLMP):": {"en": "Data code (SLMP):", "zh": "数据格式 (SLMP)："},
+    "Modbus Unit ID:": {"en": "Modbus Unit ID:", "zh": "Modbus 单元 ID："},
+    "SLMP: Binary/ASCII phải KHỚP PLC. Modbus: Port thường 502; D…→Holding Register, M…→Coil (số = địa chỉ Modbus).": {
+        "en": "SLMP: Binary/ASCII must MATCH the PLC. Modbus: port is usually 502; D…→Holding Register, M…→Coil (number = Modbus address).",
+        "zh": "SLMP：Binary/ASCII 必须与 PLC 一致。Modbus：端口通常 502；D…→保持寄存器，M…→线圈 (数字 = Modbus 地址)。",
+    },
     "Binary/ASCII phải KHỚP cấu hình SLMP trên PLC.": {
         "en": "Binary/ASCII must MATCH the SLMP setting on the PLC.",
         "zh": "Binary/ASCII 必须与 PLC 上 SLMP 的设置一致。",

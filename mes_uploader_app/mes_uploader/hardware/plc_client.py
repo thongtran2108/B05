@@ -151,5 +151,9 @@ def make_plc_client(cfg, side_cfg):
         return MockPlcClient()
     ip = side_cfg.plc_ip or cfg.plc.ip
     port = side_cfg.plc_port or cfg.plc.port
+    if getattr(cfg.plc, "protocol", "slmp") == "modbus":
+        from .modbus_tcp import ModbusTcpClient
+        return ModbusTcpClient(ip, port, cfg.plc.timeout,
+                               unit=getattr(cfg.plc, "modbus_unit", 0xFF))
     return PlcClient(ip, port, cfg.plc.timeout,
                      ascii_mode=getattr(cfg.plc, "ascii_mode", False))
