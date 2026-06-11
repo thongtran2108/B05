@@ -520,6 +520,12 @@ class SidePanel(QGroupBox):
             return s
         return str(v)
 
+    def _cap_rows(self):
+        """Giới hạn số dòng bảng (chạy dài không phình bộ nhớ)."""
+        t = self.table
+        while t.rowCount() > MAX_TABLE_ROWS:
+            t.removeRow(0)
+
     def _add_reading_row(self, d):
         t = self.table
         r = t.rowCount(); t.insertRow(r)
@@ -552,8 +558,7 @@ class SidePanel(QGroupBox):
 
         self._pending_mes.append(t.item(r, 5))
         t.scrollToBottom()
-        while t.rowCount() > MAX_TABLE_ROWS:
-            t.removeRow(0)
+        self._cap_rows()
 
     def _mark_uploaded(self, result, ok):
         for it in self._pending_mes:
@@ -590,6 +595,7 @@ class SidePanel(QGroupBox):
         jitem = t.item(r, 3)
         jitem.setForeground(QColor(RED)); jitem.setFont(self._bold)
         t.scrollToBottom()
+        self._cap_rows()
         self._pending_mes = []          # SN bị hủy, không có gì để đánh dấu MES
 
     def _show_rejected(self, d):
@@ -615,6 +621,7 @@ class SidePanel(QGroupBox):
         jitem = t.item(r, 3)
         jitem.setForeground(QColor(AMBER)); jitem.setFont(self._bold)
         t.scrollToBottom()
+        self._cap_rows()
         self._pending_mes = []
 
     # ------------------------------------------------------------------ #

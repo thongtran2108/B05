@@ -162,45 +162,51 @@ class SideWorker:
         prev_trig = 1     # khởi tạo mức cao để chỉ bắt sườn lên 0->1
 
         while not self._stop.is_set():
-            with self._lock:
-                armed = self._armed
-                state = self._state
-                material = self._material
-                head_type = self._head_type
+            try:
+                with self._lock:
+                    armed = self._armed
+                    state = self._state
+                    material = self._material
+                    head_type = self._head_type
 
-            if not armed:
+                if not armed:
+                    prev_trig = 1
+                    time.sleep(interval)
+                    continue
+
+                # --- Đang chờ quét SN ---
+                if state == ST_WAIT_SCAN:
+                    sn = self._poll_sn()
+                    if sn is not None:
+                        self._begin_sn(side_cfg, material, head_type, sn)
+                        trig = None
+                        with self._lock:
+                            if self._state == ST_RUNNING:
+                                trig, _ = side_addresses(side_cfg, head_type)
+                        if trig is not None:
+                            prev_trig = self._safe_read_signal(trig)
+                            if prev_trig is None:
+                                prev_trig = 1
+                    time.sleep(interval)
+                    continue
+
+                # --- Đang chạy: poll trigger, bắt sườn lên ---
+                trig, done = side_addresses(side_cfg, head_type)
+                cur = self._safe_read_signal(trig)
+                if cur is None:              # lỗi PLC -> thử lại vòng sau
+                    time.sleep(interval)
+                    continue
+                if prev_trig == 0 and cur == 1:
+                    self._handle_one_run(side_cfg, head_type, trig, done)
+                    nxt = self._safe_read_signal(trig)
+                    prev_trig = 0 if nxt is None else nxt
+                else:
+                    prev_trig = cur
+                time.sleep(interval)
+            except Exception as ex:          # noqa: BLE001  (chạy dài: KHÔNG để worker chết)
+                self._emit("log", text=tr("Lỗi vòng lặp worker: %s") % ex)
                 prev_trig = 1
                 time.sleep(interval)
-                continue
-
-            # --- Đang chờ quét SN ---
-            if state == ST_WAIT_SCAN:
-                sn = self._poll_sn()
-                if sn is not None:
-                    self._begin_sn(side_cfg, material, head_type, sn)
-                    with self._lock:
-                        if self._state == ST_RUNNING:
-                            trig, _ = side_addresses(side_cfg, head_type)
-                    if self._state == ST_RUNNING:
-                        prev_trig = self._safe_read_signal(trig)
-                        if prev_trig is None:
-                            prev_trig = 1
-                time.sleep(interval)
-                continue
-
-            # --- Đang chạy: poll trigger, bắt sườn lên ---
-            trig, done = side_addresses(side_cfg, head_type)
-            cur = self._safe_read_signal(trig)
-            if cur is None:                  # lỗi PLC -> thử lại vòng sau
-                time.sleep(interval)
-                continue
-            if prev_trig == 0 and cur == 1:
-                self._handle_one_run(side_cfg, head_type, trig, done)
-                nxt = self._safe_read_signal(trig)
-                prev_trig = 0 if nxt is None else nxt
-            else:
-                prev_trig = cur
-            time.sleep(interval)
 
     # ------------------------------------------------------------------ #
     #  Các bước                                                           #

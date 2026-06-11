@@ -50,29 +50,41 @@ class PlcClient:
             self.connect()
 
     def read_bit(self, device):
-        with self._lock:
-            self._ensure_locked()
-            return self._plc.read_bit(device)
+        return self._io(lambda p: p.read_bit(device))
 
     def write_bit(self, device, value):
-        with self._lock:
-            self._ensure_locked()
-            return self._plc.write_bit(device, value)
+        return self._io(lambda p: p.write_bit(device, value))
 
     def read_word(self, device):
-        with self._lock:
-            self._ensure_locked()
-            return self._plc.read_word(device)
+        return self._io(lambda p: p.read_word(device))
 
     def write_word(self, device, value):
+        return self._io(lambda p: p.write_word(device, value))
+
+    def _io(self, fn):
+        """Thực hiện 1 thao tác PLC; nếu LỖI -> bỏ socket hỏng để lần sau TỰ
+        kết nối lại (tự phục hồi khi mạng/PLC chớp tắt trong lúc chạy dài)."""
         with self._lock:
             self._ensure_locked()
-            return self._plc.write_word(device, value)
+            try:
+                return fn(self._plc)
+            except Exception:                # noqa: BLE001
+                self._drop_locked()
+                raise
 
     def _ensure_locked(self):
         if not (self._plc is not None and self._plc.sock is not None):
             self._plc = MitsubishiPLC(self.ip, self.port, self.timeout)
             self._plc.connect()
+
+    def _drop_locked(self):
+        """Đóng & bỏ kết nối hiện tại (đang giữ _lock) để lần sau tạo socket mới."""
+        if self._plc is not None:
+            try:
+                self._plc.close()
+            except Exception:                # noqa: BLE001
+                pass
+            self._plc = None
 
 
 class MockPlcClient:

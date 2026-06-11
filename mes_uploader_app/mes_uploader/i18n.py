@@ -185,6 +185,8 @@ _TR = {
         "en": "PLC read error %s: %s", "zh": "PLC 读取错误 %s：%s"},
     "Lỗi ghi PLC %s: %s": {
         "en": "PLC write error %s: %s", "zh": "PLC 写入错误 %s：%s"},
+    "Lỗi vòng lặp worker: %s": {
+        "en": "Worker loop error: %s", "zh": "工作循环出错：%s"},
     "  [ẢNH] %s": {"en": "  [IMAGE] %s", "zh": "  [图片] %s"},
     "  [ẢNH] Bỏ qua: %s": {
         "en": "  [IMAGE] Skipped: %s", "zh": "  [图片] 跳过：%s"},
