@@ -106,6 +106,16 @@ class MitsubishiPLC:
     # ------------------------------------------------------------------ #
     #  Đóng khung 3E và gửi / nhận                                        #
     # ------------------------------------------------------------------ #
+    def _recv_exact(self, n):
+        """Đọc ĐỦ n byte từ socket (TCP có thể trả về từng phần / phân mảnh)."""
+        buf = bytearray()
+        while len(buf) < n:
+            chunk = self.sock.recv(n - len(buf))
+            if not chunk:
+                raise IOError("PLC dong ket noi khi dang doc")
+            buf += chunk
+        return bytes(buf)
+
     def _send_recv(self, request_data):
         """Bọc phần command (request_data) vào khung 3E rồi gửi, trả về data."""
         # --- Subheader + network info (cố định cho 3E binary) ---
@@ -122,15 +132,21 @@ class MitsubishiPLC:
         frame = (subheader + network_no + pc_no + dst_module_io +
                  dst_module_sta + data_len + cpu_timer + request_data)
 
-        self.sock.send(frame)
-        resp = self.sock.recv(4096)
+        self.sock.sendall(frame)
 
-        # Bỏ qua header 9 byte, đọc mã kết thúc (2 byte) tại offset 9
-        end_code = struct.unpack('<H', resp[9:11])[0]
+        # Phản hồi 3E: 9 byte đầu (tới hết trường 'độ dài'), rồi đọc ĐÚNG
+        # 'độ dài' byte tiếp theo (gồm end_code 2 byte + dữ liệu). Đọc đủ để
+        # tránh nhận thiếu khi PLC trả phản hồi bị phân mảnh (lỗi 'unpack
+        # requires a buffer of 2 bytes').
+        head = self._recv_exact(9)
+        resp_len = struct.unpack('<H', head[7:9])[0]
+        body = self._recv_exact(resp_len)
+
+        end_code = struct.unpack('<H', body[0:2])[0]
         if end_code != 0:
             raise IOError("PLC tra ve loi, end code = 0x%04X" % end_code)
 
-        return resp[11:]   # phần dữ liệu trả về
+        return body[2:]   # phần dữ liệu sau end_code
 
     @staticmethod
     def _device_bytes(dtype, addr):
