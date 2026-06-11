@@ -1,6 +1,7 @@
 {
   "language": "vi",
   "simulation": true,
+  "manual_sn": false,
   "poll_interval_ms": 200,
   "plc": {
     "ip": "192.168.1.250",

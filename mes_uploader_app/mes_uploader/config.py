@@ -168,7 +168,10 @@ class ImageConfig:
 @dataclass
 class AppConfig:
     language: str = "vi"             # ngôn ngữ giao diện: "vi" | "zh" | "en"
-    simulation: bool = True          # True = chạy giả lập, không cần phần cứng
+    simulation: bool = True          # True = PLC giả lập (Mock), không cần phần cứng
+    # True = nhập SN bằng tay (ô text + nút Quét) thay vì tay scan COM.
+    # simulation=False + manual_sn=True => chế độ "PLC thật + nhập SN tay".
+    manual_sn: bool = False
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
 
     plc: PlcConfig = field(default_factory=PlcConfig)
@@ -337,3 +340,18 @@ def head_image(images_cfg, head_type):
     if head_type == "8X":
         return images_cfg.img_8x
     return images_cfg.img_16x
+
+
+def manual_sn_entry(cfg):
+    """SN nhập bằng tay (ô text + nút Quét) thay vì tay scan COM?
+
+    Đúng khi: chế độ giả lập, HOẶC bật 'nhập SN tay' (PLC thật + SN tay).
+    """
+    return bool(cfg.simulation or getattr(cfg, "manual_sn", False))
+
+
+def app_mode(cfg):
+    """Chế độ chạy: 'sim' (giả lập) | 'manual_sn' (PLC thật + SN tay) | 'live' (thật)."""
+    if cfg.simulation:
+        return "sim"
+    return "manual_sn" if getattr(cfg, "manual_sn", False) else "live"

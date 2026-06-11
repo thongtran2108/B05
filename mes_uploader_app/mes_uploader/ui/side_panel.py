@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
-from ..config import head_count
+from ..config import head_count, manual_sn_entry
 from ..core.side_worker import ST_IDLE, ST_WAIT_SCAN, ST_RUNNING, SideWorker
 from ..hardware.plc_client import make_plc_client
 from ..hardware.scanner import SerialScanner
@@ -230,7 +230,9 @@ class SidePanel(QGroupBox):
         brow.addWidget(self.btn_start); brow.addWidget(self.btn_stop)
         root.addLayout(brow)
 
-        # --- Khu giả lập (chỉ hiện khi simulation) ---
+        # --- Khu nhập SN tay + giả lập tín hiệu PLC ---
+        # Ô SN + nút "Quét" hiện khi nhập SN tay (giả lập HOẶC PLC thật + SN tay).
+        # Nút "Tín hiệu PLC (giả lập)" chỉ hiện khi PLC giả lập (Mock).
         self.sim_box = QFrame()
         sbl = QHBoxLayout(self.sim_box)
         sbl.setContentsMargins(0, 0, 0, 0)
@@ -244,7 +246,8 @@ class SidePanel(QGroupBox):
         sbl.addWidget(self.btn_scan)
         sbl.addWidget(self.btn_trig)
         root.addWidget(self.sim_box)
-        self.sim_box.setVisible(self.cfg.simulation)
+        self.sim_box.setVisible(manual_sn_entry(self.cfg))
+        self.btn_trig.setVisible(self.cfg.simulation)
 
         # --- Splitter: BẢNG DỮ LIỆU (trên) + NHẬT KÝ (dưới) ---
         split = QSplitter(Qt.Vertical)
@@ -300,7 +303,8 @@ class SidePanel(QGroupBox):
     def apply_config(self, cfg):
         self.stop_worker()
         self.cfg = cfg
-        self.sim_box.setVisible(cfg.simulation)
+        self.sim_box.setVisible(manual_sn_entry(cfg))
+        self.btn_trig.setVisible(cfg.simulation)
         self._reload_projects()
 
     def _project_items(self):
@@ -408,7 +412,8 @@ class SidePanel(QGroupBox):
         self.worker.start()
         self.worker.arm(material, head_type)
 
-        if not self.cfg.simulation:
+        # Chỉ mở tay scan COM khi KHÔNG nhập SN tay (chế độ thật đầy đủ).
+        if not manual_sn_entry(self.cfg):
             self.scanner = SerialScanner(
                 side_cfg.scanner_port, side_cfg.scanner_baud,
                 on_scan=lambda sn: self.worker.submit_sn(sn),

@@ -45,6 +45,8 @@ _TR = {
     "Chế độ GIẢ LẬP": {"en": "SIMULATION mode", "zh": "模拟模式"},
     "Chế độ THẬT (PLC + scan)": {
         "en": "LIVE mode (PLC + scan)", "zh": "实机模式 (PLC + 扫码)"},
+    "Chế độ PLC THẬT + SN tay": {
+        "en": "REAL PLC + manual SN mode", "zh": "真实 PLC + 手动 SN 模式"},
     "Lưu cấu hình": {"en": "Save configuration", "zh": "保存配置"},
     "Không lưu được file cấu hình:\n%s": {
         "en": "Could not save the configuration file:\n%s",
@@ -251,10 +253,15 @@ _TR = {
 
     # ----- Setting: tab Chung -----
     "Ngôn ngữ:": {"en": "Language:", "zh": "语言："},
-    "Chế độ giả lập (không cần PLC / tay scan)": {
-        "en": "Simulation mode (no PLC / scanner needed)",
-        "zh": "模拟模式 (无需 PLC / 扫码枪)",
+    "Chế độ:": {"en": "Mode:", "zh": "模式："},
+    "Giả lập (không cần PLC / tay scan)": {
+        "en": "Simulation (no PLC / scanner)", "zh": "模拟 (无需 PLC / 扫码枪)"},
+    "PLC thật + nhập SN tay (không cần tay scan)": {
+        "en": "Real PLC + manual SN (no scanner)",
+        "zh": "真实 PLC + 手动输入 SN (无需扫码枪)",
     },
+    "Thật (PLC + tay scan)": {
+        "en": "Live (PLC + scanner)", "zh": "实机 (PLC + 扫码枪)"},
     "Chu kỳ đọc PLC:": {"en": "PLC poll interval:", "zh": "PLC 轮询周期："},
     "Chọn…": {"en": "Browse…", "zh": "选择…"},
     "Thư mục gốc dữ liệu:": {"en": "Data root folder:", "zh": "数据根目录："},

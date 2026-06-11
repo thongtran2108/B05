@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from ..config import save_config
+from ..config import save_config, app_mode
 from ..i18n import tr, set_language, add_listener, remove_listener
 from .side_panel import SidePanel
 from .settings_dialog import SettingsDialog
@@ -85,14 +85,15 @@ class MainWindow(QMainWindow):
             % (now.toString("HH:mm:ss"), now.toString("dd/MM/yyyy")))
 
     def _update_mode_label(self):
-        if self.cfg.simulation:
-            self.lbl_mode.setText(
-                '<span style="color:%s">●</span>&nbsp; %s'
-                % (AMBER, tr("Chế độ GIẢ LẬP")))
+        mode = app_mode(self.cfg)
+        if mode == "sim":
+            color, text = AMBER, tr("Chế độ GIẢ LẬP")
+        elif mode == "manual_sn":
+            color, text = AMBER, tr("Chế độ PLC THẬT + SN tay")
         else:
-            self.lbl_mode.setText(
-                '<span style="color:%s">●</span>&nbsp; %s'
-                % (GREEN, tr("Chế độ THẬT (PLC + scan)")))
+            color, text = GREEN, tr("Chế độ THẬT (PLC + scan)")
+        self.lbl_mode.setText(
+            '<span style="color:%s">●</span>&nbsp; %s' % (color, text))
 
     def retranslate(self):
         """Cập nhật lại toàn bộ văn bản tĩnh khi đổi ngôn ngữ."""

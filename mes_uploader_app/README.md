@@ -53,6 +53,18 @@ python run.py
 > lưu vào `config.json` (trường `"language"`) nên lần mở sau giữ nguyên. Bấm
 > **Hủy** trong hộp thoại sẽ hoàn nguyên về ngôn ngữ trước đó.
 
+### 3 chế độ chạy (⚙ Setting > Chung > Chế độ)
+
+| Chế độ | PLC | SN |
+|--------|-----|----|
+| **Giả lập** | Mock (không cần PLC) | nhập tay (ô text + **Quét**) + nút **Tín hiệu PLC (giả lập)** |
+| **PLC thật + nhập SN tay** | **thật** | nhập tay (ô text + **Quét**); tín hiệu trigger lấy từ **PLC thật** |
+| **Thật (PLC + tay scan)** | **thật** | đọc từ **tay scan COM** |
+
+> Chế độ **PLC thật + nhập SN tay** dùng để **test với PLC thật mà chưa cần tay
+> scan**: gõ SN vào ô rồi bấm **Quét**, còn trigger/done vẫn chạy bằng PLC thật.
+> (Tương ứng `config.json`: `simulation` + `manual_sn`.)
+
 ### Thử nhanh ở chế độ giả lập
 1. Bấm **Bắt đầu** ở 1 bên.
 2. Gõ SN vào ô *"Nhập SN giả lập"* → bấm **Quét (giả lập)**.

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
-from ..config import AppConfig, MaterialConfig
+from ..config import AppConfig, MaterialConfig, app_mode
 from ..i18n import tr, set_language, current_language, available_languages
 from ..material_import import parse_materials
 
@@ -113,9 +113,14 @@ class SettingsDialog(QDialog):
         self.cbo_lang.currentIndexChanged.connect(self._on_language_changed)
         form.addRow(tr("Ngôn ngữ:"), self.cbo_lang)
 
-        self.chk_sim = QCheckBox(tr("Chế độ giả lập (không cần PLC / tay scan)"))
-        self.chk_sim.setChecked(self.cfg.simulation)
-        form.addRow(self.chk_sim)
+        self.cbo_mode = QComboBox()
+        self.cbo_mode.addItem(tr("Giả lập (không cần PLC / tay scan)"), "sim")
+        self.cbo_mode.addItem(tr("PLC thật + nhập SN tay (không cần tay scan)"),
+                              "manual_sn")
+        self.cbo_mode.addItem(tr("Thật (PLC + tay scan)"), "live")
+        i = self.cbo_mode.findData(app_mode(self.cfg))
+        self.cbo_mode.setCurrentIndex(i if i >= 0 else 0)
+        form.addRow(tr("Chế độ:"), self.cbo_mode)
 
         self.spn_poll = QSpinBox(); self.spn_poll.setRange(20, 5000)
         self.spn_poll.setValue(self.cfg.poll_interval_ms)
@@ -458,7 +463,9 @@ class SettingsDialog(QDialog):
     def _collect(self):
         c = self.cfg
         c.language = self.cbo_lang.currentData() or getattr(c, "language", "vi")
-        c.simulation = self.chk_sim.isChecked()
+        mode = self.cbo_mode.currentData() or "sim"
+        c.simulation = (mode == "sim")
+        c.manual_sn = (mode == "manual_sn")
         c.poll_interval_ms = self.spn_poll.value()
 
         c.paths.base_dir = self.txt_base.text().strip()
