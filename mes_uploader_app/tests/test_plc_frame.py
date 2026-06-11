@@ -49,6 +49,18 @@ def _resp_words(words):
             + b'\x00\x00' + data)
 
 
+def _resp_bits(bits):
+    """Dựng khung phản hồi 3E binary cho lệnh đọc bit (2 bit/byte)."""
+    data = bytearray()
+    for i in range(0, len(bits), 2):
+        hi = 0x10 if bits[i] else 0x00
+        lo = 0x01 if (i + 1 < len(bits) and bits[i + 1]) else 0x00
+        data.append(hi | lo)
+    resp_len = 2 + len(data)
+    return (b'\xD0\x00\x00\xFF\xFF\x03\x00' + struct.pack('<H', resp_len)
+            + b'\x00\x00' + bytes(data))
+
+
 def main():
     # 1) Đọc 1 word, phản hồi bị cắt 1 byte/lần (phân mảnh tối đa)
     plc = MitsubishiPLC("1.2.3.4", 5000)
@@ -76,6 +88,13 @@ def main():
     except IOError as ex:
         assert "end code" in str(ex)
     print("4) end_code != 0 -> báo lỗi rõ ràng")
+
+    # 5) Đọc BIT (M...) qua phản hồi phân mảnh
+    plc.sock = _FakeSock(_resp_bits([1]), chunk=1)
+    assert plc.read_bit("M100") == 1
+    plc.sock = _FakeSock(_resp_bits([0]), chunk=1)
+    assert plc.read_bit("M100") == 0
+    print("5) đọc bit (M100) qua phản hồi phân mảnh -> OK")
 
     print("\nTEST PLC-FRAME PASS ✔")
 

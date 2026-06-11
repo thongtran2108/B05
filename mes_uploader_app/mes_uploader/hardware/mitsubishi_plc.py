@@ -166,6 +166,9 @@ class MitsubishiPLC:
                self._device_bytes(dtype, addr) +
                struct.pack('<H', count))
         data = self._send_recv(req)
+        if len(data) < count * 2:        # PLC trả thiếu -> báo rõ (không 'unpack')
+            raise IOError("PLC tra ve thieu du lieu word (%d/%d byte)"
+                          % (len(data), count * 2))
         return [struct.unpack('<H', data[i:i + 2])[0]
                 for i in range(0, count * 2, 2)]
 
@@ -211,6 +214,8 @@ class MitsubishiPLC:
         for b in data:
             bits.append((b >> 4) & 1)
             bits.append(b & 1)
+        if len(bits) < count:            # PLC trả thiếu -> báo rõ (không IndexError)
+            raise IOError("PLC tra ve thieu bit (%d/%d)" % (len(bits), count))
         return bits[:count]
 
     def read_bit(self, device):
