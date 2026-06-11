@@ -289,6 +289,12 @@ _TR = {
         "en": "Each side may set its own IP/Port in the Left/Right tab.",
         "zh": "每一侧可在 左侧/右侧 标签页设置各自的 IP/端口。",
     },
+    "Định dạng dữ liệu (Data Code):": {
+        "en": "Data code:", "zh": "数据格式 (Data Code)："},
+    "Binary/ASCII phải KHỚP cấu hình SLMP trên PLC.": {
+        "en": "Binary/ASCII must MATCH the SLMP setting on the PLC.",
+        "zh": "Binary/ASCII 必须与 PLC 上 SLMP 的设置一致。",
+    },
     "Test kết nối PLC": {"en": "Test PLC connection", "zh": "测试 PLC 连接"},
     "vd D4206 (word) hoặc M100 (bit)": {
         "en": "e.g. D4206 (word) or M100 (bit)", "zh": "例如 D4206 (word) 或 M100 (bit)"},

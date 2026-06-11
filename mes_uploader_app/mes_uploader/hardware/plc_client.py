@@ -17,10 +17,11 @@ from .mitsubishi_plc import MitsubishiPLC, is_word_device
 class PlcClient:
     """Kết nối thật tới PLC Mitsubishi, giữ socket bền và tự kết nối lại."""
 
-    def __init__(self, ip, port=5000, timeout=3.0):
+    def __init__(self, ip, port=5000, timeout=3.0, ascii_mode=False):
         self.ip = ip
         self.port = port
         self.timeout = timeout
+        self.ascii_mode = ascii_mode
         self._plc = None
         self._lock = threading.Lock()
 
@@ -32,7 +33,8 @@ class PlcClient:
         with self._lock:
             if self.is_connected:
                 return True
-            self._plc = MitsubishiPLC(self.ip, self.port, self.timeout)
+            self._plc = MitsubishiPLC(self.ip, self.port, self.timeout,
+                                      ascii_mode=self.ascii_mode)
             self._plc.connect()
             return True
 
@@ -74,7 +76,8 @@ class PlcClient:
 
     def _ensure_locked(self):
         if not (self._plc is not None and self._plc.sock is not None):
-            self._plc = MitsubishiPLC(self.ip, self.port, self.timeout)
+            self._plc = MitsubishiPLC(self.ip, self.port, self.timeout,
+                                      ascii_mode=self.ascii_mode)
             self._plc.connect()
 
     def _drop_locked(self):
@@ -148,4 +151,5 @@ def make_plc_client(cfg, side_cfg):
         return MockPlcClient()
     ip = side_cfg.plc_ip or cfg.plc.ip
     port = side_cfg.plc_port or cfg.plc.port
-    return PlcClient(ip, port, cfg.plc.timeout)
+    return PlcClient(ip, port, cfg.plc.timeout,
+                     ascii_mode=getattr(cfg.plc, "ascii_mode", False))

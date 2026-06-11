@@ -65,6 +65,8 @@ class PlcConfig:
     ip: str = "192.168.1.250"
     port: int = 5000
     timeout: float = 3.0
+    # Communication Data Code của SLMP: False = Binary (mặc định), True = ASCII.
+    ascii_mode: bool = False
 
 
 # ---------------------------------------------------------------------- #

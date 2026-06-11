@@ -44,6 +44,13 @@ DEVICE_CODES = {
 WORD_DEVICE_PREFIXES = {name for name, (_c, is_bit) in DEVICE_CODES.items()
                         if not is_bit}
 
+# Mã thiết bị cho khung 3E ASCII (2 ký tự). Thiết bị đánh địa chỉ HEX vs DEC.
+ASCII_DEVICE_CODE = {
+    'D': 'D*', 'W': 'W*', 'R': 'R*', 'M': 'M*',
+    'X': 'X*', 'Y': 'Y*', 'L': 'L*', 'B': 'B*',
+}
+ASCII_HEX_DEVICES = {'X', 'Y', 'B', 'W'}   # số thiết bị viết HEX; còn lại viết DEC
+
 
 def is_word_device(device):
     """True nếu 'device' là thanh ghi WORD (D/W/R...), False nếu BIT (M/X/Y...).
@@ -61,10 +68,11 @@ def is_word_device(device):
 class MitsubishiPLC:
     """Kết nối tới PLC Mitsubishi FX5U qua MC Protocol 3E (binary, TCP)."""
 
-    def __init__(self, ip, port=5000, timeout=3.0):
+    def __init__(self, ip, port=5000, timeout=3.0, ascii_mode=False):
         self.ip = ip
         self.port = port
         self.timeout = timeout
+        self.ascii = ascii_mode          # True = khung 3E ASCII, False = 3E binary
         self.sock = None
 
     # ------------------------------------------------------------------ #
@@ -153,6 +161,36 @@ class MitsubishiPLC:
 
         return body[2:]   # phần dữ liệu sau end_code
 
+    # ------------------------------------------------------------------ #
+    #  Khung 3E ASCII (một số PLC cấu hình Communication Data Code = ASCII)
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _ascii_device(dtype, addr):
+        """Mã thiết bị ASCII (2 ký tự) + số thiết bị 6 ký tự (HEX/DEC)."""
+        code = ASCII_DEVICE_CODE[dtype]
+        num = ("%06X" if dtype in ASCII_HEX_DEVICES else "%06d") % addr
+        return code + num
+
+    def _send_recv_ascii(self, cmd_ascii):
+        """Gửi/nhận khung 3E ASCII. cmd_ascii = command+subcommand+device+…
+
+        Tự thêm 'monitoring timer' + header + trường độ dài. Trả về phần dữ
+        liệu (chuỗi ASCII) sau end_code.
+        """
+        body = "0010" + cmd_ascii                 # 0010 = monitoring timer
+        header = "5000" + "00" + "FF" + "03FF" + "00" + ("%04X" % len(body))
+        self.sock.sendall((header + body).encode("ascii"))
+
+        # Header phản hồi ASCII = 18 ký tự (tới hết trường độ dài)
+        head = self._recv_exact(18, "header(ascii)").decode("ascii", "replace")
+        resp_len = int(head[14:18], 16)
+        resp = self._recv_exact(resp_len, "body(ascii, header=%s)" % head) \
+            .decode("ascii", "replace")
+        end_code = int(resp[0:4], 16)
+        if end_code != 0:
+            raise IOError("PLC tra ve loi, end code = 0x%04X" % end_code)
+        return resp[4:]                           # dữ liệu sau end_code
+
     @staticmethod
     def _device_bytes(dtype, addr):
         """3 byte địa chỉ (little endian) + 1 byte mã device."""
@@ -165,6 +203,14 @@ class MitsubishiPLC:
     def read_words(self, device, count=1):
         """Đọc 'count' word liên tiếp từ 'device' (vd 'D100'). Trả list int."""
         dtype, addr = self._parse_device(device)
+        if self.ascii:
+            data = self._send_recv_ascii(
+                "0401" + "0000" + self._ascii_device(dtype, addr)
+                + ("%04X" % count))
+            if len(data) < count * 4:
+                raise IOError("PLC tra ve thieu du lieu word (ascii %d/%d)"
+                              % (len(data), count * 4))
+            return [int(data[i:i + 4], 16) for i in range(0, count * 4, 4)]
         command = b'\x01\x04'          # batch read
         subcommand = b'\x00\x00'       # đơn vị word
         req = (command + subcommand +
@@ -189,6 +235,12 @@ class MitsubishiPLC:
         if isinstance(values, int):
             values = [values]
         dtype, addr = self._parse_device(device)
+        if self.ascii:
+            payload = "".join("%04X" % (v & 0xFFFF) for v in values)
+            self._send_recv_ascii(
+                "1401" + "0000" + self._ascii_device(dtype, addr)
+                + ("%04X" % len(values)) + payload)
+            return True
         command = b'\x01\x14'          # batch write
         subcommand = b'\x00\x00'       # đơn vị word
         payload = b''.join(struct.pack('<H', v & 0xFFFF) for v in values)
@@ -208,6 +260,14 @@ class MitsubishiPLC:
     def read_bits(self, device, count=1):
         """Đọc 'count' bit liên tiếp (vd 'M0'). Trả list 0/1."""
         dtype, addr = self._parse_device(device)
+        if self.ascii:
+            data = self._send_recv_ascii(
+                "0401" + "0001" + self._ascii_device(dtype, addr)
+                + ("%04X" % count))
+            if len(data) < count:
+                raise IOError("PLC tra ve thieu bit (ascii %d/%d)"
+                              % (len(data), count))
+            return [1 if c == '1' else 0 for c in data[:count]]
         command = b'\x01\x04'          # batch read
         subcommand = b'\x01\x00'       # đơn vị bit
         req = (command + subcommand +
@@ -231,6 +291,12 @@ class MitsubishiPLC:
         if isinstance(values, int):
             values = [values]
         dtype, addr = self._parse_device(device)
+        if self.ascii:
+            payload = "".join('1' if v else '0' for v in values)
+            self._send_recv_ascii(
+                "1401" + "0001" + self._ascii_device(dtype, addr)
+                + ("%04X" % len(values)) + payload)
+            return True
         command = b'\x01\x14'          # batch write
         subcommand = b'\x01\x00'       # đơn vị bit
         # đóng gói 2 bit / byte

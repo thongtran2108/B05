@@ -17,7 +17,7 @@ class _FakePLC:
     """Giả MitsubishiPLC: bản đầu tiên gây lỗi đọc, các bản sau đọc OK."""
     instances = 0
 
-    def __init__(self, ip, port=5000, timeout=3.0):
+    def __init__(self, ip, port=5000, timeout=3.0, ascii_mode=False):
         _FakePLC.instances += 1
         self._fail = (_FakePLC.instances == 1)   # chỉ bản đầu lỗi
         self.sock = object()                     # coi như đã kết nối

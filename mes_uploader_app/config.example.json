@@ -6,7 +6,8 @@
   "plc": {
     "ip": "192.168.1.250",
     "port": 5000,
-    "timeout": 3.0
+    "timeout": 3.0,
+    "ascii_mode": false
   },
   "api": {
     "timeout": 5.0,
