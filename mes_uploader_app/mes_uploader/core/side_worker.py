@@ -59,6 +59,7 @@ class SideWorker:
         self._sn_queue = queue.Queue()
         self._img_queue = queue.Queue(maxsize=64)   # hàng đợi tải ảnh (nền)
         self._img_thread = None
+        self._last_plc_err = None        # gộp log lỗi PLC trùng (tránh spam)
 
         self._armed = False
         self._state = ST_IDLE
@@ -465,11 +466,14 @@ class SideWorker:
         là 'bật' (trả 1), =0 là 'tắt' (trả 0). Lỗi -> None (thử kết nối lại)."""
         try:
             if is_word_device(device):
-                return 1 if self.plc.read_word(device) else 0
-            return 1 if self.plc.read_bit(device) else 0
+                v = self.plc.read_word(device)
+            else:
+                v = self.plc.read_bit(device)
+            self._plc_ok()
+            return 1 if v else 0
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text=tr("Lỗi đọc PLC %s: %s") % (device, ex))
+            self._log_plc_error(tr("Lỗi đọc PLC %s: %s") % (device, ex))
             try:                              # thử kết nối lại
                 self.plc.connect()
                 self._emit("plc", connected=True)
@@ -484,19 +488,31 @@ class SideWorker:
                 self.plc.write_word(device, 1 if value else 0)
             else:
                 self.plc.write_bit(device, 1 if value else 0)
+            self._plc_ok()
             return True
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text=tr("Lỗi ghi PLC %s: %s") % (device, ex))
+            self._log_plc_error(tr("Lỗi ghi PLC %s: %s") % (device, ex))
             return False
+
+    def _plc_ok(self):
+        """Giao tiếp PLC thành công -> cho phép log lỗi MỚI sau này."""
+        self._last_plc_err = None
+
+    def _log_plc_error(self, msg):
+        """Ghi log lỗi PLC nhưng GỘP các lỗi trùng liên tiếp (tránh spam)."""
+        if msg != self._last_plc_err:
+            self._last_plc_err = msg
+            self._emit("log", text=msg)
 
     def _safe_write_word(self, device, value):
         try:
             self.plc.write_word(device, value)
+            self._plc_ok()
             return True
         except Exception as ex:              # noqa: BLE001
             self._emit("plc", connected=False)
-            self._emit("log", text=tr("Lỗi ghi PLC %s: %s") % (device, ex))
+            self._log_plc_error(tr("Lỗi ghi PLC %s: %s") % (device, ex))
             return False
 
     def _poll_sn(self):

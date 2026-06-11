@@ -96,6 +96,23 @@ def main():
     assert plc.read_bit("M100") == 0
     print("5) đọc bit (M100) qua phản hồi phân mảnh -> OK")
 
+    # 6) PLC đóng kết nối -> lỗi KÈM chẩn đoán (số byte nhận + hex)
+    plc.sock = _FakeSock(b"", chunk=1)            # đóng ngay, chưa gửi gì
+    try:
+        plc.read_word("D4206")
+        assert False, "phải báo lỗi đóng kết nối"
+    except IOError as ex:
+        assert "header" in str(ex) and "0/9" in str(ex), str(ex)
+    # gửi 9 byte header (resp_len=4) rồi đóng -> thiếu body, báo rõ
+    header_only = b'\xD0\x00\x00\xFF\xFF\x03\x00' + struct.pack('<H', 4)
+    plc.sock = _FakeSock(header_only, chunk=1)
+    try:
+        plc.read_word("D4206")
+        assert False, "phải báo lỗi thiếu body"
+    except IOError as ex:
+        assert "body" in str(ex), str(ex)
+    print("6) PLC đóng kết nối -> báo lỗi kèm chẩn đoán (header/body, hex) ✔")
+
     print("\nTEST PLC-FRAME PASS ✔")
 
 
