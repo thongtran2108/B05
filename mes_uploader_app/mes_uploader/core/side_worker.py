@@ -313,6 +313,11 @@ class SideWorker:
 
         if runs >= total:
             self._finish(sn, readings, head_type)
+        else:
+            # Còn đầu tiếp theo của SN này: PLC đã reset thanh ghi kết quả SN
+            # (vd D4200 trái / D4202 phải) về 0 sau đầu vừa xong, nên GHI LẠI = 1
+            # (OK) để PLC chạy đầu kế tiếp. Đầu CUỐI xong thì thôi (chờ SN mới).
+            self._rearm_sn_signal(side_cfg, runs + 1, total)
 
     def _abort_sn(self, trig, done, sn, head_type, index, total, message):
         """Hủy SN đang chạy do thiếu dữ liệu: báo lỗi, KHÔNG upload, chờ quét lại.
@@ -402,6 +407,20 @@ class SideWorker:
         value = SN_RESULT_OK if ok else SN_RESULT_NG
         if self._safe_write_word(reg, value):
             self._emit("log", text=tr("  Ghi kết quả SN về PLC %s = %d") % (reg, value))
+
+    def _rearm_sn_signal(self, side_cfg, next_idx, total):
+        """Ghi LẠI thanh ghi kết quả SN = OK (1) để PLC chạy ĐẦU KẾ TIẾP.
+
+        SN nhiều đầu: PLC reset thanh ghi này (vd D4200/D4202) về 0 sau mỗi đầu
+        nên app phải ghi lại 1 trước mỗi đầu tiếp theo (đầu cuối xong thì thôi).
+        Chỉ ghi khi bên này có cấu hình thanh ghi (side_cfg.sn_result_reg).
+        """
+        reg = (getattr(side_cfg, "sn_result_reg", "") or "").strip()
+        if not reg:
+            return
+        if self._safe_write_word(reg, SN_RESULT_OK):
+            self._emit("log", text=tr("  Ghi lại tín hiệu chạy đầu %d/%d (PLC %s = %d)")
+                       % (next_idx, total, reg, SN_RESULT_OK))
 
     def _handshake_done(self, trig, done):
         """Báo done về PLC rồi RESET tín hiệu trigger đã nhận về 0.

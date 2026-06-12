@@ -466,6 +466,10 @@ _TR = {
         "en": "  Wrote SN result to PLC %s = %d",
         "zh": "  已写入 SN 结果到 PLC %s = %d",
     },
+    "  Ghi lại tín hiệu chạy đầu %d/%d (PLC %s = %d)": {
+        "en": "  Re-sent run signal for head %d/%d (PLC %s = %d)",
+        "zh": "  重新发送运行信号 第 %d/%d 个探头 (PLC %s = %d)",
+    },
     "PLC IP riêng (trống = chung):": {
         "en": "Dedicated PLC IP (empty = shared):", "zh": "独立 PLC IP (留空 = 公共)："},
     "PLC Port riêng (0 = chung):": {
