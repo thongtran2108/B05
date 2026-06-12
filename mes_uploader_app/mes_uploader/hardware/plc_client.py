@@ -157,3 +157,21 @@ def make_plc_client(cfg, side_cfg):
                                unit=getattr(cfg.plc, "modbus_unit", 0xFF))
     return PlcClient(ip, port, cfg.plc.timeout,
                      ascii_mode=getattr(cfg.plc, "ascii_mode", False))
+
+
+def make_shared_plc(cfg):
+    """Tạo 1 PLC client DÙNG CHUNG cho cả app (chỉ MỘT kết nối TCP).
+
+    Dùng cfg.plc (PLC chung) — KHÔNG theo IP/port riêng từng bên, để cả 2 bên
+    và nút Test cùng đi qua 1 kết nối (FX5U mỗi cổng/slot chỉ 1 kết nối).
+    Mock nếu giả lập.
+    """
+    if cfg.simulation:
+        return MockPlcClient()
+    ip, port = cfg.plc.ip, cfg.plc.port
+    if getattr(cfg.plc, "protocol", "slmp") == "modbus":
+        from .modbus_tcp import ModbusTcpClient
+        return ModbusTcpClient(ip, port, cfg.plc.timeout,
+                               unit=getattr(cfg.plc, "modbus_unit", 0xFF))
+    return PlcClient(ip, port, cfg.plc.timeout,
+                     ascii_mode=getattr(cfg.plc, "ascii_mode", False))

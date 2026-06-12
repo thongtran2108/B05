@@ -47,6 +47,41 @@ _TR = {
         "en": "LIVE mode (PLC + scan)", "zh": "实机模式 (PLC + 扫码)"},
     "Chế độ PLC THẬT + SN tay": {
         "en": "REAL PLC + manual SN mode", "zh": "真实 PLC + 手动 SN 模式"},
+    "Kết nối PLC": {"en": "Connect PLC", "zh": "连接 PLC"},
+    "PLC: giả lập": {"en": "PLC: simulation", "zh": "PLC：模拟"},
+    "PLC đã kết nối": {"en": "PLC connected", "zh": "PLC 已连接"},
+    "Đang ở chế độ GIẢ LẬP — không cần kết nối PLC.": {
+        "en": "In SIMULATION mode — no PLC connection needed.",
+        "zh": "处于模拟模式 — 无需连接 PLC。",
+    },
+    "Kết nối PLC %s:%s thành công.": {
+        "en": "Connected to PLC %s:%s successfully.",
+        "zh": "成功连接 PLC %s:%s。",
+    },
+    "Lỗi kết nối PLC:\n%s": {
+        "en": "PLC connection error:\n%s", "zh": "PLC 连接出错：\n%s"},
+    "Chưa có kết nối PLC.": {
+        "en": "No PLC connection yet.", "zh": "尚无 PLC 连接。"},
+    "Hãy bấm 'Kết nối PLC' trước khi Bắt đầu.": {
+        "en": "Press 'Connect PLC' before Start.",
+        "zh": "请先点击“连接 PLC”再开始。",
+    },
+    "Dùng kết nối PLC chung.": {
+        "en": "Using the shared PLC connection.", "zh": "使用共享 PLC 连接。"},
+    "CHƯA kết nối PLC — hãy bấm 'Kết nối PLC'.": {
+        "en": "PLC NOT connected — press 'Connect PLC'.",
+        "zh": "PLC 未连接 — 请点击“连接 PLC”。",
+    },
+    "(Kết nối chung) Đọc %s = %s": {
+        "en": "(Shared connection) Read %s = %s", "zh": "(共享连接) 读取 %s = %s"},
+    "(Kết nối chung) Lỗi đọc %s:\n%s": {
+        "en": "(Shared connection) Error reading %s:\n%s",
+        "zh": "(共享连接) 读取 %s 出错：\n%s",
+    },
+    "Đã lưu cấu hình. Bấm 'Kết nối PLC' rồi 'Bắt đầu' ở mỗi bên.": {
+        "en": "Configuration saved. Press 'Connect PLC' then 'Start' on each side.",
+        "zh": "配置已保存。请点击“连接 PLC”再在每侧点击“开始”。",
+    },
     "Lưu cấu hình": {"en": "Save configuration", "zh": "保存配置"},
     "Không lưu được file cấu hình:\n%s": {
         "en": "Could not save the configuration file:\n%s",

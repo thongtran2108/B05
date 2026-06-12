@@ -203,12 +203,26 @@ class SettingsDialog(QDialog):
         return w
 
     def _test_plc(self):
-        """Kết nối + đọc thử 1 thanh ghi với IP/Port/giao thức đang chọn."""
+        """Đọc thử 1 thanh ghi. Ưu tiên KẾT NỐI CHUNG đang mở (tránh mở thêm
+        kết nối thứ 2 tới PLC); nếu chưa có thì mở tạm theo cấu hình đang nhập."""
         from ..hardware.plc_client import PlcClient
         from ..hardware.mitsubishi_plc import is_word_device
+        dev = (self.txt_plc_test.text().strip() or "D0")
+
+        shared = getattr(self.parent(), "plc", None)
+        if shared is not None and getattr(shared, "is_connected", False):
+            try:
+                val = (shared.read_word(dev) if is_word_device(dev)
+                       else shared.read_bit(dev))
+                QMessageBox.information(self, tr("Test PLC"),
+                                       tr("(Kết nối chung) Đọc %s = %s") % (dev, val))
+            except Exception as ex:           # noqa: BLE001
+                QMessageBox.critical(self, tr("Test PLC"),
+                                     tr("(Kết nối chung) Lỗi đọc %s:\n%s") % (dev, ex))
+            return
+
         ip = self.txt_plc_ip.text().strip()
         port = self.spn_plc_port.value()
-        dev = (self.txt_plc_test.text().strip() or "D0")
         if self.cbo_proto.currentData() == "modbus":
             from ..hardware.modbus_tcp import ModbusTcpClient
             cli = ModbusTcpClient(ip, port, self.spn_plc_to.value(),

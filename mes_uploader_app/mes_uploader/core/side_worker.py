@@ -47,11 +47,12 @@ SN_RESULT_NG = 2
 
 
 class SideWorker:
-    def __init__(self, side_key, cfg, plc_client, on_event):
+    def __init__(self, side_key, cfg, plc_client, on_event, owns_plc=True):
         self.side_key = side_key            # 'left' | 'right'
         self.cfg = cfg
         self.plc = plc_client
         self.on_event = on_event            # callable(event_type, **data)
+        self._owns_plc = owns_plc           # False = kết nối PLC DÙNG CHUNG (không tự đóng)
 
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -88,10 +89,11 @@ class SideWorker:
             # chờ ảnh đang tải xong (có giới hạn); nếu đích treo, luồng nền
             # daemon sẽ tự kết thúc cùng tiến trình, không chặn việc dừng.
             self._img_thread.join(timeout=2.0)
-        try:
-            self.plc.close()
-        except Exception:                    # noqa: BLE001
-            pass
+        if self._owns_plc:                   # chỉ đóng nếu SỞ HỮU (không phải kết nối chung)
+            try:
+                self.plc.close()
+            except Exception:                # noqa: BLE001
+                pass
 
     def set_selection(self, material, head_type):
         """Đổi mã liệu / loại đầu (chỉ khi đang chờ, không khi đang chạy)."""
@@ -450,6 +452,14 @@ class SideWorker:
                 pass
             self._emit("plc", connected=True)
             self._emit("log", text=tr("Chế độ GIẢ LẬP — không cần PLC/scan thật."))
+            return
+        if not self._owns_plc:
+            # Dùng kết nối PLC CHUNG (cửa sổ chính đã/đang quản lý) -> không tự
+            # mở kết nối mới, chỉ báo trạng thái.
+            connected = bool(getattr(self.plc, "is_connected", False))
+            self._emit("plc", connected=connected)
+            self._emit("log", text=(tr("Dùng kết nối PLC chung.") if connected
+                                    else tr("CHƯA kết nối PLC — hãy bấm 'Kết nối PLC'.")))
             return
         try:
             self.plc.connect()

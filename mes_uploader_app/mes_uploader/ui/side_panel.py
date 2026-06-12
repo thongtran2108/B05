@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
 
 from ..config import head_count, manual_sn_entry
 from ..core.side_worker import ST_IDLE, ST_WAIT_SCAN, ST_RUNNING, SideWorker
-from ..hardware.plc_client import make_plc_client
 from ..hardware.scanner import SerialScanner
 from ..i18n import tr
 from .theme import GREEN, RED, AMBER, ELEV2, BORDER2, CAPTION
@@ -113,6 +112,7 @@ class SidePanel(QGroupBox):
         self.cfg = cfg
         self.worker = None
         self.scanner = None
+        self.shared_plc = None          # kết nối PLC DÙNG CHUNG (cửa sổ chính cấp)
         self._pending_mes = []          # các ô cột MES của SN đang chạy
         self._cur_state = ST_IDLE       # trạng thái cuối (để dựng lại khi đổi ngôn ngữ)
         self._plc_connected = None      # None = chưa biết, True/False = đã/ mất kết nối
@@ -307,6 +307,10 @@ class SidePanel(QGroupBox):
         self.btn_trig.setVisible(cfg.simulation)
         self._reload_projects()
 
+    def set_plc(self, plc):
+        """Nhận kết nối PLC DÙNG CHUNG từ cửa sổ chính."""
+        self.shared_plc = plc
+
     def _project_items(self):
         """Danh sách (value, label) các chuyên án theo thứ tự xuất hiện.
 
@@ -407,8 +411,17 @@ class SidePanel(QGroupBox):
             return
 
         side_cfg = getattr(self.cfg, self.side_key)
-        plc = make_plc_client(self.cfg, side_cfg)
-        self.worker = SideWorker(self.side_key, self.cfg, plc, self._emit_event)
+        plc = self.shared_plc
+        if plc is None:
+            self._append_log(tr("Chưa có kết nối PLC."))
+            return
+        # Chế độ thật: BẮT BUỘC đã kết nối PLC chung trước khi chạy.
+        if not self.cfg.simulation and not getattr(plc, "is_connected", False):
+            self._append_log(tr("Hãy bấm 'Kết nối PLC' trước khi Bắt đầu."))
+            return
+        # Dùng kết nối PLC CHUNG -> worker KHÔNG đóng khi dừng (owns_plc=False).
+        self.worker = SideWorker(self.side_key, self.cfg, plc, self._emit_event,
+                                 owns_plc=False)
         self.worker.start()
         self.worker.arm(material, head_type)
 

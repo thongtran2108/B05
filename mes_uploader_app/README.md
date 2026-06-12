@@ -158,8 +158,11 @@ Theo từng bên, mỗi loại đầu có 2 địa chỉ bit (đặt trong Setti
 - **Địa chỉ trigger/done nhận BIT hoặc WORD**: bit `M…` (0/1) **hoặc** thanh ghi
   `D…` (word). Với word, app coi **giá trị ≠ 0 = "chạy"**, ghi done = 1 và reset
   trigger = 0. App tự nhận loại theo tiền tố (`M/X/Y…`=bit, `D/W/R`=word).
-- 1 PLC dùng chung 2 bên (IP/Port ở tab **PLC**). Nếu dùng **2 PLC riêng**, đặt
-  `plc_ip` / `plc_port` trong tab từng bên.
+- **MỘT kết nối PLC dùng chung** cho cả app (cả 2 bên + nút Test). Bấm
+  **"Kết nối PLC"** trên thanh tiêu đề **một lần**; sau đó **Bắt đầu** mỗi bên
+  chỉ đọc/ghi qua kết nối đó, **không mở thêm kết nối**. (FX5U mỗi cổng/slot chỉ
+  cho 1 kết nối — nếu HMI đã dùng 1 cổng thì tạo **SLMP Connection khác** cho
+  app ở cổng riêng.) IP/Port chung đặt ở tab **PLC**.
 - Bắt tay: app phát hiện **sườn lên** của bit trigger → đọc dữ liệu → ghi
   `done=1` → **RESET bit trigger đã nhận về 0** → hạ `done=0` → sẵn sàng cho đầu
   tiếp theo. (App tự ghi trigger về 0 sau khi nhận — PLC pulse trigger rồi chờ
