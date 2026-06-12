@@ -303,9 +303,10 @@ class SideWorker:
                    values=reading.get("values", []),
                    file=os.path.basename(reading.get("file", "") or ""))
 
-        # tải ảnh AOI (theo bên CCD + OK/NG) lên link đích — xếp hàng, nền
+        # tải ảnh AOI (theo bên CCD + OK/NG) lên link đích — xếp hàng, nền.
+        # idx = thứ tự đầu của SN (1,2,…) -> tên ảnh có hậu tố _#idx.
         self._enqueue_image_upload(sn, head_type, side_cfg.ccd_prefix,
-                                   reading.get("judge", ""))
+                                   reading.get("judge", ""), idx)
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -337,7 +338,7 @@ class SideWorker:
         self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
 
-    def _enqueue_image_upload(self, sn, head_type, ccd, judge):
+    def _enqueue_image_upload(self, sn, head_type, ccd, judge, index):
         """Xếp yêu cầu tải ảnh (theo bên CCD) vào HÀNG ĐỢI cho 1 luồng nền.
 
         Tuần tự hóa giúp: không sinh vô số luồng khi đích (share) chậm/chết, và
@@ -353,7 +354,7 @@ class SideWorker:
         head_img = head_image(images, head_type)
         if not head_img.source_dir or not head_img.upload_dir:
             return
-        job = (head_img, images, ccd, sn, judge, datetime.datetime.now(),
+        job = (head_img, images, ccd, sn, judge, index, datetime.datetime.now(),
                self.cfg.paths.require_today)
         try:
             self._img_queue.put_nowait(job)
@@ -374,14 +375,14 @@ class SideWorker:
                 continue
             self._do_image_upload(*job)
 
-    def _do_image_upload(self, head_img, images, ccd, sn, judge, when,
+    def _do_image_upload(self, head_img, images, ccd, sn, judge, index, when,
                          require_today):
         try:
             ok, msg, _dest = image_uploader.upload_latest_image(
                 head_img.source_dir, head_img.upload_dir, ccd, sn, judge,
                 when=when, sub_image=images.sub_image, ok_dir=images.ok_dir,
                 ng_dir=images.ng_dir, extensions=images.extensions,
-                require_today=require_today)
+                require_today=require_today, index=index)
         except Exception as ex:              # noqa: BLE001 (luồng nền: không được chết)
             self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % ex)
             return

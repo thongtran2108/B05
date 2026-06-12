@@ -11,8 +11,9 @@ Khi 1 đầu chạy xong:
     - vào đúng <YYYYMMDD>/<CCD bên đó>/<OK|NG> của NGÀY HÔM NAY
     - lấy ảnh MỚI NHẤT (theo thời gian sửa đổi)
     - copy sang  <upload_dir>/<YYYYMMDD>/<CCD>/  (tạo thư mục nếu chưa có)
-    - đổi tên:  <SN>_<YYYYMMDD HHMMSS>_<Passed|Failed>.<ext>
-                vd  123456_20260609 183415_Passed.jpg   (Passed=OK, Failed=NG)
+    - đổi tên:  <SN>_<YYYY.MM.DD HH.MM.SS>_#<thứ tự đầu>.<ext>
+                vd  123456_2026.06.09 18.34.15_#1.jpg
+                (#1, #2… theo từng đầu đo của SN — 2 đầu 8X -> _#1 và _#2)
 
 "Tải lên" = copy file sang đường dẫn chia sẻ mạng (UNC), vd
 //10.222.48.222/<tên trạm> — ghi thẳng vào share nếu máy có quyền.
@@ -30,25 +31,24 @@ from .i18n import tr
 DEFAULT_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
 
 
-def passed_label(judge):
-    """OK -> 'Passed'; còn lại (NG…) -> 'Failed'."""
-    return "Passed" if str(judge).strip().upper() == "OK" else "Failed"
-
-
 def _day(when):
     return when.strftime("%Y%m%d")          # thư mục ngày: 20260606 (cả nguồn & đích)
 
 
 def _stamp(when):
-    return when.strftime("%Y%m%d %H%M%S")   # phần thời gian trong tên: 20260609 183415
+    return when.strftime("%Y.%m.%d %H.%M.%S")  # phần thời gian trong tên: 2026.06.09 18.34.15
 
 
-def build_dest_name(sn, judge, ext=".jpg", when=None):
-    """Tên file đích: <sn>_<YYYYMMDD HHMMSS>_<Passed|Failed><ext>."""
+def build_dest_name(sn, index, ext=".jpg", when=None):
+    """Tên file đích: <sn>_<YYYY.MM.DD HH.MM.SS>_#<số thứ tự đầu><ext>.
+
+    index = thứ tự đầu đo của SN này (1, 2, …). Khi 1 SN có nhiều đầu thì ảnh
+    mỗi đầu có tên khác nhau (vd 2 đầu 8X -> _#1, _#2) nên không ghi đè nhau.
+    """
     when = when or datetime.datetime.now()
     if ext and not ext.startswith("."):
         ext = "." + ext
-    return "%s_%s_%s%s" % (sn, _stamp(when), passed_label(judge), ext or ".jpg")
+    return "%s_%s_#%d%s" % (sn, _stamp(when), int(index), ext or ".jpg")
 
 
 def _leaf_for(judge, ok_dir, ng_dir):
@@ -146,11 +146,13 @@ def _unique_path(path):
 
 def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
                         sub_image="Image", ok_dir="OK", ng_dir="NG",
-                        extensions=DEFAULT_EXTENSIONS, require_today=True):
+                        extensions=DEFAULT_EXTENSIONS, require_today=True,
+                        index=1):
     """Lấy ảnh mới nhất ở <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>
     rồi copy sang <upload_dir>/<YYYYMMDD>/<CCD>/ với tên đã đổi.
 
-    ccd = 'CCD1' (Trái) / 'CCD2' (Phải).
+    ccd = 'CCD1' (Trái) / 'CCD2' (Phải). judge (OK/NG) dùng để chọn thư mục
+    nguồn; index = thứ tự đầu đo của SN (1, 2, …) -> đưa vào tên file (_#index).
     Trả về (ok: bool, message: str, dest_path: str | None).
     """
     when = when or datetime.datetime.now()
@@ -169,7 +171,7 @@ def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
     try:
         os.makedirs(day_dir, exist_ok=True)
         dest = _unique_path(os.path.join(
-            day_dir, build_dest_name(sn, judge, ext, when)))
+            day_dir, build_dest_name(sn, index, ext, when)))
         # copy (không phải copy2): để mtime đích = lúc tải, dễ sắp xếp ở đích
         shutil.copy(src, dest)
     except Exception as ex:                  # noqa: BLE001  (lỗi mạng/quyền)

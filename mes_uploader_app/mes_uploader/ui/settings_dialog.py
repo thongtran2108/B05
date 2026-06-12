@@ -379,8 +379,9 @@ class SettingsDialog(QDialog):
                                 ("16X", img.img_16x)):
             form.addRow(_section(tr("Ảnh đầu %s") % label))
             self._w_img[label] = self._add_head_image_rows(form, head_cfg)
-        form.addRow(_help(tr("Đổi tên khi tải: <SN>_<YYYYMMDD HHMMSS>_Passed|"
-                             "Failed.<ext> (vd 123456_20260609 183415_Passed.jpg).")))
+        form.addRow(_help(tr("Đổi tên khi tải: <SN>_<YYYY.MM.DD HH.MM.SS>_#<thứ "
+                             "tự đầu>.<ext> (vd 123456_2026.06.09 18.34.15_#1.jpg; "
+                             "2 đầu 8X -> _#1, _#2).")))
         return _scroll(w)
 
     def _add_head_image_rows(self, form, head_cfg):
