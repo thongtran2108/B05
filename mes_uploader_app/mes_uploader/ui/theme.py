@@ -299,6 +299,11 @@ QLabel#badge {{
     font-weight: 600;
 }}
 
+/* ---- Vùng cuộn nội dung panel (giữ nền card xuyên qua, bỏ viền) ---- */
+QScrollArea#panelScroll {{ background: transparent; border: none; }}
+QScrollArea#panelScroll > QWidget {{ background: transparent; }}
+QWidget#panelScrollBody {{ background: transparent; }}
+
 /* ---- Splitter & Scrollbar ---- */
 QSplitter::handle {{ background: transparent; height: 10px; }}
 QScrollBar:vertical {{ background: transparent; width: 12px; margin: 2px; }}

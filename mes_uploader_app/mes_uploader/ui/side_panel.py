@@ -13,8 +13,8 @@ import html as _html
 import re as _re
 from PySide6.QtWidgets import (
     QAbstractItemView, QButtonGroup, QComboBox, QFrame, QGroupBox, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QSplitter,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from ..config import head_count, manual_sn_entry
@@ -133,8 +133,22 @@ class SidePanel(QGroupBox):
     #  Dựng widget                                                        #
     # ------------------------------------------------------------------ #
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(12, 18, 12, 12)
+        # Bọc toàn bộ nội dung trong vùng cuộn: khi cửa sổ / màn hình thấp,
+        # nội dung không bị tràn và khuất ở dưới mà hiện thanh cuộn dọc để
+        # vẫn xem được bảng dữ liệu + nhật ký.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(12, 18, 12, 12)
+        outer.setSpacing(0)
+        scroll = QScrollArea(); scroll.setObjectName("panelScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.addWidget(scroll)
+
+        content = QWidget(); content.setObjectName("panelScrollBody")
+        scroll.setWidget(content)
+        root = QVBoxLayout(content)
+        root.setContentsMargins(0, 0, 4, 0)   # chừa 4px bên phải cho thanh cuộn
         root.setSpacing(9)
 
         # --- Chọn chuyên án + mã liệu + loại đầu ---
@@ -273,12 +287,16 @@ class SidePanel(QGroupBox):
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(800)
-        self.log.setMinimumHeight(170)
+        self.log.setMinimumHeight(96)
         llay.addWidget(lcap); llay.addWidget(self.log)
         split.addWidget(lbox)
 
         split.setStretchFactor(0, 3); split.setStretchFactor(1, 2)
-        split.setSizes([300, 260])
+        split.setChildrenCollapsible(False)
+        split.setSizes([300, 220])
+        # Cao tối thiểu vừa đủ để bảng + nhật ký luôn dùng được; thấp hơn nữa
+        # thì vùng cuộn của panel sẽ tiếp quản (không cắt mất nội dung).
+        split.setMinimumHeight(240)
         root.addWidget(split, 1)
 
     def _build_table(self):

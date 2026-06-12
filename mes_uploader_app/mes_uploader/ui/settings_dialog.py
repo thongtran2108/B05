@@ -12,10 +12,12 @@ Gồm các tab:
 
 import copy
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-    QFileDialog, QFormLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QScrollArea, QSpinBox, QTableWidget,
+    QFileDialog, QFormLayout, QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QTableWidget,
     QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
@@ -27,14 +29,37 @@ from ..material_import import parse_materials
 def _section(title):
     """Nhãn tiêu đề nhóm trong form Setting."""
     lbl = QLabel(title)
+    lbl.setWordWrap(True)
     lbl.setStyleSheet("color:#9fb4d8; font-weight:700; margin-top:6px;")
     return lbl
+
+
+def _help(text):
+    """Nhãn ghi chú dài: tự xuống dòng để không kéo rộng hộp thoại (trước đây
+    chữ dài làm Setting rộng ra hoặc bị cắt khi màn hình nhỏ)."""
+    lbl = QLabel(text)
+    lbl.setWordWrap(True)
+    lbl.setStyleSheet("color:#7f8b9e; font-size:12px;")
+    return lbl
+
+
+def _scroll(inner):
+    """Bọc 1 trang tab trong vùng cuộn dọc.
+
+    Tab dài (nhiều dòng cấu hình) sẽ cuộn được khi màn hình thấp thay vì bị
+    tràn ra ngoài hộp thoại; cuộn ngang tắt để các ô nhập co theo bề ngang.
+    """
+    sc = QScrollArea()
+    sc.setWidgetResizable(True)
+    sc.setFrameShape(QFrame.NoFrame)
+    sc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    sc.setWidget(inner)
+    return sc
 
 
 class SettingsDialog(QDialog):
     def __init__(self, cfg, parent=None):
         super().__init__(parent)
-        self.resize(560, 520)
         self.cfg = copy.deepcopy(cfg)     # làm việc trên bản sao
         self._orig_lang = current_language()   # để hoàn nguyên nếu bấm Hủy
 
@@ -48,6 +73,15 @@ class SettingsDialog(QDialog):
         self.btns.rejected.connect(self.reject)
         layout.addWidget(self.btns)
         self._apply_static_texts()
+        self._apply_initial_size()
+
+    def _apply_initial_size(self):
+        """Mở hộp thoại vừa màn hình: cao tối đa = vùng hiển thị nên không bị
+        tràn ra ngoài; mỗi tab đã có vùng cuộn riêng khi nội dung dài."""
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        avail_h = screen.availableGeometry().height() if screen else 768
+        self.setMaximumHeight(avail_h)
+        self.resize(600, min(640, int(avail_h * 0.9)))
 
     # ------------------------------------------------------------------ #
     #  Dựng / đổi ngôn ngữ                                                #
@@ -145,13 +179,13 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Thư mục con 16X:"), self.txt_sub16)
         form.addRow(tr("Mẫu tên file Trái:"), self.txt_lglob)
         form.addRow(tr("Mẫu tên file Phải:"), self.txt_rglob)
-        form.addRow(QLabel(tr("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*")))
+        form.addRow(_help(tr("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*")))
 
         self.chk_today = QCheckBox(
             tr("Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)"))
         self.chk_today.setChecked(self.cfg.paths.require_today)
         form.addRow(self.chk_today)
-        return w
+        return _scroll(w)
 
     def _browse_base(self):
         d = QFileDialog.getExistingDirectory(self, tr("Chọn thư mục gốc dữ liệu"),
@@ -186,10 +220,10 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Timeout:"), self.spn_plc_to)
         form.addRow(tr("Data Code (SLMP):"), self.cbo_plc_code)
         form.addRow(tr("Modbus Unit ID:"), self.spn_modbus_unit)
-        form.addRow(QLabel(tr("SLMP: Binary/ASCII phải KHỚP PLC. Modbus: Port "
-                              "thường 502; D…→Holding Register, M…→Coil (số = địa "
-                              "chỉ Modbus).")))
-        form.addRow(QLabel(tr("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải.")))
+        form.addRow(_help(tr("SLMP: Binary/ASCII phải KHỚP PLC. Modbus: Port "
+                             "thường 502; D…→Holding Register, M…→Coil (số = địa "
+                             "chỉ Modbus).")))
+        form.addRow(_help(tr("Mỗi bên có thể đặt IP/Port riêng trong tab Bên trái/phải.")))
 
         # --- Test kết nối/đọc thử 1 thanh ghi ---
         form.addRow(_section(tr("Test kết nối PLC")))
@@ -200,7 +234,7 @@ class SettingsDialog(QDialog):
         h = QHBoxLayout(); h.addWidget(self.txt_plc_test, 1); h.addWidget(btn_test)
         hw = QWidget(); hw.setLayout(h)
         form.addRow(tr("Đọc thử thanh ghi:"), hw)
-        return w
+        return _scroll(w)
 
     def _test_plc(self):
         """Đọc thử 1 thanh ghi. Ưu tiên KẾT NỐI CHUNG đang mở (tránh mở thêm
@@ -282,14 +316,12 @@ class SettingsDialog(QDialog):
             form.addRow(_section(tr("API đầu %s — chọn đầu %s sẽ chạy theo API này")
                                  % (label, label)))
             self._w_api[label] = self._add_head_api_rows(form, head_cfg)
-        form.addRow(QLabel(tr("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
-                              "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
-                              "CHẶN, không tải lên).")))
-        form.addRow(QLabel(tr("POST body: sn + stationName (theo loại đầu) + empNo "
-                              "+ timer (L1: v1 - v2 - ...; L2: ...).")))
-
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
-        return scroll
+        form.addRow(_help(tr("Mỗi loại đầu có endpoint riêng. POST = tải kết quả; "
+                             "GET kiểm tra SN tới <tiền tố>+SN+<hậu tố> (SN sai -> "
+                             "CHẶN, không tải lên).")))
+        form.addRow(_help(tr("POST body: sn + stationName (theo loại đầu) + empNo "
+                             "+ timer (L1: v1 - v2 - ...; L2: ...).")))
+        return _scroll(w)
 
     def _add_head_api_rows(self, form, head_cfg):
         """Thêm các dòng cấu hình API cho 1 loại đầu; trả về dict widget."""
@@ -338,8 +370,8 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Thư mục ảnh OK:"), self.txt_img_ok)
         form.addRow(tr("Thư mục ảnh NG:"), self.txt_img_ng)
         form.addRow(tr("Phần mở rộng ảnh:"), self.txt_img_ext)
-        form.addRow(QLabel(tr("Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/"
-                              "<OK|NG>; đích = <link>/<YYYYMMDD>/.")))
+        form.addRow(_help(tr("Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/"
+                             "<OK|NG>; đích = <link>/<YYYYMMDD>/.")))
 
         # --- Đường dẫn RIÊNG theo từng loại đầu ---
         self._w_img = {}
@@ -347,11 +379,9 @@ class SettingsDialog(QDialog):
                                 ("16X", img.img_16x)):
             form.addRow(_section(tr("Ảnh đầu %s") % label))
             self._w_img[label] = self._add_head_image_rows(form, head_cfg)
-        form.addRow(QLabel(tr("Đổi tên khi tải: <SN>_<YYYYMMDD HHMMSS>_Passed|"
-                              "Failed.<ext> (vd 123456_20260609 183415_Passed.jpg).")))
-
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(w)
-        return scroll
+        form.addRow(_help(tr("Đổi tên khi tải: <SN>_<YYYYMMDD HHMMSS>_Passed|"
+                             "Failed.<ext> (vd 123456_20260609 183415_Passed.jpg).")))
+        return _scroll(w)
 
     def _add_head_image_rows(self, form, head_cfg):
         """Thêm dòng cấu hình ảnh (nguồn + link đích) cho 1 loại đầu."""
@@ -400,8 +430,8 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Done 8X:"), d8)
         form.addRow(tr("Trigger 16X:"), t16)
         form.addRow(tr("Done 16X:"), d16)
-        form.addRow(QLabel(tr("Trigger/Done nhận BIT (M…) hoặc thanh ghi WORD "
-                              "(D…); word coi giá trị ≠ 0 là 'bật'.")))
+        form.addRow(_help(tr("Trigger/Done nhận BIT (M…) hoặc thanh ghi WORD "
+                             "(D…); word coi giá trị ≠ 0 là 'bật'.")))
         form.addRow(tr("Thanh ghi kết quả SN (1=OK/2=NG):"), snr)
         form.addRow(tr("PLC IP riêng (trống = chung):"), pip)
         form.addRow(tr("PLC Port riêng (0 = chung):"), pport)
@@ -413,7 +443,7 @@ class SettingsDialog(QDialog):
             "trig_8x": t8, "done_8x": d8, "trig_16x": t16, "done_16x": d16,
             "sn_result_reg": snr, "plc_ip": pip, "plc_port": pport,
         })
-        return w
+        return _scroll(w)
 
     # ------------------------------------------------------------------ #
     #  Tab Mã liệu                                                        #
@@ -443,7 +473,7 @@ class SettingsDialog(QDialog):
         b_del.clicked.connect(self._del_material_row)
         h.addWidget(b_add); h.addWidget(b_imp); h.addWidget(b_del); h.addStretch(1)
         v.addLayout(h)
-        v.addWidget(QLabel(tr(
+        v.addWidget(_help(tr(
             "Cột: Chuyên án | Tên mã liệu | Số đầu 4X / 8X / 16X (loại nào "
             "không có để trống = 0). Mỗi chuyên án gom nhiều mã liệu; ngoài "
             "giao diện chọn Chuyên án rồi mới chọn Mã liệu, và chỉ hiện đúng "

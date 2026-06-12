@@ -2,6 +2,7 @@
 """Cửa sổ chính: header + 2 panel Trái / Phải độc lập + nút Setting."""
 
 from PySide6.QtCore import Qt, QTimer, QDateTime
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton,
     QVBoxLayout, QWidget,
@@ -22,8 +23,9 @@ class MainWindow(QMainWindow):
         self.config_path = config_path
         set_language(getattr(cfg, "language", "vi"))   # áp dụng ngôn ngữ đã lưu
         self.setWindowTitle(tr("MES Uploader — Tải nội dung đo lên MES"))
-        self.resize(1280, 860)
-        self.setMinimumSize(1040, 720)
+        # Min nhỏ hơn để vừa cả màn hình thấp; nội dung 2 panel có vùng cuộn
+        # riêng nên không bị cắt khi cửa sổ thấp.
+        self.setMinimumSize(900, 560)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -45,6 +47,25 @@ class MainWindow(QMainWindow):
         self._rebuild_plc()              # tạo client + cấp cho 2 panel
         self._update_mode_label()
         add_listener(self.retranslate)   # đổi ngôn ngữ -> cập nhật toàn bộ văn bản
+        self._apply_initial_size()
+
+    def _apply_initial_size(self):
+        """Mở cửa sổ to nhưng không vượt quá vùng hiển thị của màn hình.
+
+        Tránh trường hợp cửa sổ mở lớn hơn màn hình khiến phần dưới (bảng dữ
+        liệu / nhật ký) bị đẩy ra ngoài và không thấy được. Cửa sổ vẫn cho
+        kéo to/thu nhỏ bình thường.
+        """
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            self.resize(1280, 860)
+            return
+        avail = screen.availableGeometry()
+        w = min(1280, int(avail.width() * 0.94))
+        h = min(860, int(avail.height() * 0.94))
+        self.resize(w, h)
+        self.move(avail.x() + (avail.width() - w) // 2,
+                  avail.y() + (avail.height() - h) // 2)
 
     def _build_header(self):
         header = QFrame(); header.setObjectName("header")
