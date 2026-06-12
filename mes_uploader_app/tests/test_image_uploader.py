@@ -41,12 +41,12 @@ def main():
     # Bên PHẢI = CCD2: 1 ảnh OK khác hẳn
     _mk(os.path.join(src, "Image", day, "CCD2", "OK", "r.jpg"), b"R_OK", 1700)
 
-    # 1) build_dest_name đúng định dạng: <SN>_<YYYY.MM.DD HH.MM.SS>_#<thứ tự đầu>
+    # 1) build_dest_name: <SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>
     print("== build_dest_name ==")
-    assert iu.build_dest_name("123456", 1, ".jpg", when) == \
-        "123456_2026.06.09 18.34.15_#1.jpg"
-    assert iu.build_dest_name("9", 2, ".png", when) == \
-        "9_2026.06.09 18.34.15_#2.png"
+    assert iu.build_dest_name("123456", "OK", 1, ".jpg", when) == \
+        "123456_2026.06.09 18.34.15_Passed_#1.jpg"
+    assert iu.build_dest_name("9", "NG", 2, ".png", when) == \
+        "9_2026.06.09 18.34.15_Failed_#2.png"
 
     # 2) find_latest_image theo BÊN (CCD): CCD1 lấy ảnh trái, CCD2 lấy ảnh phải
     print("\n== find_latest_image theo CCD ==")
@@ -55,24 +55,24 @@ def main():
     r_ok = iu.find_latest_image(src, "CCD2", "OK", when=when)
     assert open(r_ok, "rb").read() == b"R_OK"   # đúng ảnh bên phải, không lẫn bên trái
 
-    # 3) Tải ảnh CCD1 (OK -> lấy từ thư mục OK), đầu #1: đích .../<YYYYMMDD>/CCD1/
-    print("\n== upload CCD1 OK, đầu #1 ==")
+    # 3) Tải ảnh CCD1 OK -> Passed, đầu #1: đích .../<YYYYMMDD>/CCD1/
+    print("\n== upload CCD1 OK -> Passed, đầu #1 ==")
     ok, msg, dest = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK",
                                            when=when, index=1)
     print(" ", ok, "|", msg)
     assert ok is True
     assert dest == os.path.join(dst, day, "CCD1",
-                                "123456_2026.06.09 18.34.15_#1.jpg")
+                                "123456_2026.06.09 18.34.15_Passed_#1.jpg")
     assert open(dest, "rb").read() == b"L_OK_NEW"
 
-    # 4) Tải ảnh CCD2 (NG -> lấy từ thư mục NG), đầu #2, vào đúng CCD2 (giữ đuôi nguồn)
-    print("\n== upload CCD2 NG, đầu #2 ==")
+    # 4) Tải ảnh CCD2 NG -> Failed, đầu #2, vào đúng CCD2 (giữ đuôi nguồn)
+    print("\n== upload CCD2 NG -> Failed, đầu #2 ==")
     _mk(os.path.join(src, "Image", day, "CCD2", "NG", "rn.png"), b"R_NG", 1800)
     ok, msg, dest = iu.upload_latest_image(src, dst, "CCD2", "777", "NG",
                                            when=when, index=2)
     assert ok is True
     assert dest == os.path.join(dst, day, "CCD2",
-                                "777_2026.06.09 18.34.15_#2.png")
+                                "777_2026.06.09 18.34.15_Failed_#2.png")
     assert open(dest, "rb").read() == b"R_NG"
 
     # 5) Chưa cấu hình đích -> bỏ qua
@@ -89,7 +89,7 @@ def main():
 
     # 7) Trùng tên (cùng SN + cùng đầu #1) -> tự thêm hậu tố, KHÔNG ghi đè
     print("\n== trùng tên -> không ghi đè ==")
-    first = os.path.join(dst, day, "CCD1", "123456_2026.06.09 18.34.15_#1.jpg")
+    first = os.path.join(dst, day, "CCD1", "123456_2026.06.09 18.34.15_Passed_#1.jpg")
     ok2, _, dest2 = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK",
                                            when=when, index=1)
     assert ok2 is True and dest2 != first and os.path.isfile(dest2) \
