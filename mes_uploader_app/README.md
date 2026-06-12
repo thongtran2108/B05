@@ -242,28 +242,31 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > đọc dữ liệu, app còn lấy **ảnh mới nhất** theo kết quả OK/NG và **copy** lên
 > link đích. **Mỗi loại đầu (4X / 8X / 16X) có thư mục nguồn + link đích riêng.**
 
-**Nguồn (ở máy)** — theo từng loại đầu:
+**Nguồn (ở máy)** — `source_dir` trỏ tới **thư mục trạm** (chứa `Image/`):
 
 ```
-<source_dir>/<Image>/<YYYY-MM-DD>/OK/   ← ảnh khi kết quả OK   (vd 2026-06-09)
-<source_dir>/<Image>/<YYYY-MM-DD>/NG/   ← ảnh khi kết quả NG
+<source_dir>/Image/<YYYYMMDD>/CCD1/OK|NG/   ← ảnh bên TRÁI  (vd .../20260606/CCD1/OK)
+<source_dir>/Image/<YYYYMMDD>/CCD2/OK|NG/   ← ảnh bên PHẢI
 ```
 
-**Đích (link mạng)** — tạo thư mục theo ngày rồi copy ảnh vào:
+**Đích (link mạng)** — `<upload_dir>/<YYYYMMDD>/<CCD>/`:
 
 ```
-<upload_dir>/<YYYYMMDD>/    (vd //10.222.48.222/AOI/17G/20260609/)
+<upload_dir>/<YYYYMMDD>/CCD1/   (vd //10.222.48.222/16X_RA-1/20260606/CCD1/)
+<upload_dir>/<YYYYMMDD>/CCD2/
 ```
 
-- Nhận **OK** → vào thư mục `OK`, nhận **NG** → vào thư mục `NG`, lấy **ảnh mới
-  nhất** (theo thời gian sửa đổi).
+- **Bên** quyết định **CCD**: Trái = `CCD1`, Phải = `CCD2` (theo *Tiền tố file* của
+  mỗi bên). **Kết quả** quyết định thư mục con nguồn: `OK`/`NG` (theo judge).
+- Lấy **ảnh mới nhất** (theo thời gian sửa đổi) trong `…/<CCD>/<OK|NG>` rồi copy
+  vào `…/<YYYYMMDD>/<CCD>/` ở đích (ảnh bên nào vào CCD bên đó).
 - **Đổi tên** khi tải lên: `<SN>_<YYYYMMDD HHMMSS>_<Passed|Failed>.<ext>`
   (Passed = OK, Failed = NG). Ví dụ: `123456_20260609 183415_Passed.jpg`.
 - **"Tải lên" = copy file** sang đường dẫn chia sẻ mạng (UNC, vd
-  `//10.222.48.222/AOI/17G`). Việc copy chạy ở **luồng nền** nên **không làm
+  `//10.222.48.222/<tên trạm>`). Việc copy chạy ở **luồng nền** nên **không làm
   chậm dây chuyền**; thành công/lỗi đều ghi vào **NHẬT KÝ** (dòng `[ẢNH]`).
-- Tham số chung: tên thư mục con ảnh (`Image`), tên thư mục `OK`/`NG`, danh sách
-  phần mở rộng ảnh; áp dụng cho mọi loại đầu.
+- Ngày dùng định dạng **YYYYMMDD** (giống thư mục Data). Tham số chung: tên thư
+  mục con ảnh (`Image`), tên thư mục `OK`/`NG`, danh sách phần mở rộng ảnh.
 - Thư mục ngày nguồn theo cờ **"Chỉ lấy dữ liệu của ngày hôm nay"** (mục
   *Setting > Chung*): bật → chỉ lấy ảnh **hôm nay**; tắt → lùi về **ngày mới
   nhất** có ảnh.

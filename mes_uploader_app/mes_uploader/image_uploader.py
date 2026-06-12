@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Tìm ảnh AOI MỚI NHẤT theo kết quả OK/NG rồi "tải lên" (copy) sang link đích.
+"""Tìm ảnh AOI MỚI NHẤT theo BÊN (CCD) + kết quả OK/NG rồi copy sang link đích.
 
-Cấu trúc thư mục ảnh ở máy (riêng theo từng loại đầu 4X/8X/16X):
+Cấu trúc thư mục ảnh ở máy (riêng theo từng loại đầu):
 
-    <source_dir>/<sub_image>/<YYYY-MM-DD>/<OK|NG>/   -> các file ảnh
+    <source_dir>/<sub_image>/<YYYYMMDD>/<CCD1|CCD2>/<OK|NG>/  -> các file ảnh
 
-Khi nhận kết quả OK / NG của 1 đầu:
-    - vào đúng thư mục OK hoặc NG của NGÀY HÔM NAY (vd 2026-06-09)
+    CCD1 = bên TRÁI, CCD2 = bên PHẢI; OK/NG theo judge.
+
+Khi 1 đầu chạy xong:
+    - vào đúng <YYYYMMDD>/<CCD bên đó>/<OK|NG> của NGÀY HÔM NAY
     - lấy ảnh MỚI NHẤT (theo thời gian sửa đổi)
-    - copy sang  <upload_dir>/<YYYYMMDD>/  (tạo thư mục ngày nếu chưa có)
+    - copy sang  <upload_dir>/<YYYYMMDD>/<CCD>/  (tạo thư mục nếu chưa có)
     - đổi tên:  <SN>_<YYYYMMDD HHMMSS>_<Passed|Failed>.<ext>
                 vd  123456_20260609 183415_Passed.jpg   (Passed=OK, Failed=NG)
 
 "Tải lên" = copy file sang đường dẫn chia sẻ mạng (UNC), vd
-//10.222.48.222/AOI/17G — ghi thẳng vào share nếu máy có quyền truy cập.
+//10.222.48.222/<tên trạm> — ghi thẳng vào share nếu máy có quyền.
 
 Module KHÔNG phụ thuộc Qt/PySide6 để test headless và worker dùng được.
 """
@@ -33,12 +35,8 @@ def passed_label(judge):
     return "Passed" if str(judge).strip().upper() == "OK" else "Failed"
 
 
-def _src_day(when):
-    return when.strftime("%Y-%m-%d")        # thư mục ngày ở máy: 2026-06-09
-
-
-def _dst_day(when):
-    return when.strftime("%Y%m%d")          # thư mục ngày ở đích: 20260609
+def _day(when):
+    return when.strftime("%Y%m%d")          # thư mục ngày: 20260606 (cả nguồn & đích)
 
 
 def _stamp(when):
@@ -59,40 +57,41 @@ def _leaf_for(judge, ok_dir, ng_dir):
 
 
 def _is_day_name(name):
-    """Tên thư mục có đúng định dạng ngày YYYY-MM-DD không."""
+    """Tên thư mục có đúng định dạng ngày YYYYMMDD không."""
     try:
-        datetime.datetime.strptime(name, "%Y-%m-%d")
+        datetime.datetime.strptime(name, "%Y%m%d")
         return True
     except ValueError:
         return False
 
 
-def _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
+def _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
                require_today):
-    """Thư mục ảnh OK/NG tương ứng của ngày yêu cầu.
+    """Thư mục ảnh: <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>.
 
+    ccd = 'CCD1' (Trái) / 'CCD2' (Phải). leaf = OK/NG theo judge.
     require_today=True  -> chỉ dùng thư mục NGÀY HÔM NAY; thiếu -> None.
-    require_today=False -> nếu thiếu hôm nay thì lùi về thư mục NGÀY (đúng định
-                           dạng YYYY-MM-DD) mới nhất có chứa thư mục con OK/NG.
-    Trả về đường dẫn thư mục, hoặc None nếu không có (an toàn với lỗi share).
+    require_today=False -> nếu thiếu hôm nay thì lùi về NGÀY (YYYYMMDD) mới nhất
+                           có sẵn .../CCD/OK|NG.
+    Trả về đường dẫn thư mục, hoặc None nếu không có.
     """
     leaf = _leaf_for(judge, ok_dir, ng_dir)
     img_root = os.path.join(source_dir, sub_image)
-    today_dir = os.path.join(img_root, _src_day(when), leaf)
+    today_dir = os.path.join(img_root, _day(when), ccd, leaf)
     if os.path.isdir(today_dir):
         return today_dir
     if require_today:
         return None
-    # fallback: chỉ xét thư mục tên ĐÚNG ngày, có sẵn thư mục con OK/NG cần lấy
+    # fallback: thư mục NGÀY (YYYYMMDD) mới nhất có sẵn <CCD>/<OK|NG>
     try:
         days = sorted(
             (d for d in os.listdir(img_root)
              if _is_day_name(d)
-             and os.path.isdir(os.path.join(img_root, d, leaf))),
+             and os.path.isdir(os.path.join(img_root, d, ccd, leaf))),
             reverse=True)
     except OSError:                          # img_root không có / share lỗi
         return None
-    return os.path.join(img_root, days[0], leaf) if days else None
+    return os.path.join(img_root, days[0], ccd, leaf) if days else None
 
 
 def _safe_mtime(path):
@@ -122,12 +121,12 @@ def _latest_in_dir(d, extensions):
     return max(files, key=_safe_mtime)
 
 
-def find_latest_image(source_dir, judge, when=None, sub_image="Image",
+def find_latest_image(source_dir, ccd, judge, when=None, sub_image="Image",
                       ok_dir="OK", ng_dir="NG", extensions=DEFAULT_EXTENSIONS,
                       require_today=True):
-    """Trả về đường dẫn ảnh MỚI NHẤT trong thư mục OK/NG tương ứng, hoặc None."""
+    """Ảnh MỚI NHẤT trong <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>."""
     when = when or datetime.datetime.now()
-    d = _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
+    d = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
                    require_today)
     return _latest_in_dir(d, extensions)
 
@@ -145,27 +144,28 @@ def _unique_path(path):
         i += 1
 
 
-def upload_latest_image(source_dir, upload_dir, sn, judge, when=None,
+def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
                         sub_image="Image", ok_dir="OK", ng_dir="NG",
                         extensions=DEFAULT_EXTENSIONS, require_today=True):
-    """Tìm ảnh mới nhất theo OK/NG ở 'source_dir' rồi copy sang
-    '<upload_dir>/<YYYYMMDD>/' với tên đã đổi.
+    """Lấy ảnh mới nhất ở <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>
+    rồi copy sang <upload_dir>/<YYYYMMDD>/<CCD>/ với tên đã đổi.
 
+    ccd = 'CCD1' (Trái) / 'CCD2' (Phải).
     Trả về (ok: bool, message: str, dest_path: str | None).
     """
     when = when or datetime.datetime.now()
     if not source_dir or not upload_dir:
         return False, tr("Chưa cấu hình thư mục ảnh nguồn/đích"), None
-    d = _judge_dir(source_dir, judge, when, sub_image, ok_dir, ng_dir,
+    d = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
                    require_today)
     src = _latest_in_dir(d, extensions)
     if not src:
         # báo đúng thư mục đã tìm (kể cả khi fallback sang ngày cũ)
-        where = d or os.path.join(source_dir, sub_image, _src_day(when),
+        where = d or os.path.join(source_dir, sub_image, _day(when), ccd,
                                   _leaf_for(judge, ok_dir, ng_dir))
         return False, tr("Không tìm thấy ảnh mới trong %s") % where, None
     ext = os.path.splitext(src)[1] or ".jpg"
-    day_dir = os.path.join(upload_dir, _dst_day(when))
+    day_dir = os.path.join(upload_dir, _day(when), ccd)
     try:
         os.makedirs(day_dir, exist_ok=True)
         dest = _unique_path(os.path.join(

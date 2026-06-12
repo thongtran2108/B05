@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Kiểm thử tải ảnh AOI (image_uploader) — không cần mạng / Qt / phần cứng.
 
-- Lấy ảnh MỚI NHẤT trong thư mục OK/NG theo kết quả.
-- Copy sang <đích>/<YYYYMMDD>/ và đổi tên
-  <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext>.
+Cấu trúc: <src>/Image/<YYYYMMDD>/<CCD1|CCD2>/<OK|NG>/  (CCD1=Trái, CCD2=Phải).
+- Lấy ảnh MỚI NHẤT theo BÊN (CCD) + OK/NG.
+- Copy sang <đích>/<YYYYMMDD>/<CCD>/ và đổi tên <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext>.
 - Bỏ qua khi chưa cấu hình / không có ảnh; trùng tên thì không ghi đè.
 
 Chạy:  python -m tests.test_image_uploader
@@ -28,83 +28,80 @@ def _mk(path, data, mtime):
 
 def main():
     root = tempfile.mkdtemp(prefix="img_test_")
-    src = os.path.join(root, "src8x")
-    dst = os.path.join(root, "upload8x")
+    src = os.path.join(root, "16X_RA-1")     # thư mục trạm (nguồn)
+    dst = os.path.join(root, "upload16x")    # link đích (trạm)
     when = datetime.datetime(2026, 6, 9, 18, 34, 15)
-    day_src = when.strftime("%Y-%m-%d")   # 2026-06-09 (thư mục ngày ở máy)
-    day_dst = when.strftime("%Y%m%d")     # 20260609   (thư mục ngày ở đích)
+    day = when.strftime("%Y%m%d")            # 20260609 (cả nguồn & đích)
 
-    # Thư mục OK: 2 ảnh, b.jpg mới hơn a.jpg
-    ok_dir = os.path.join(src, "Image", day_src, "OK")
-    _mk(os.path.join(ok_dir, "a.jpg"), b"OLD", 1000)
-    _mk(os.path.join(ok_dir, "b.jpg"), b"NEWEST", 2000)
-    # Thư mục NG: 1 ảnh .png
-    ng_dir = os.path.join(src, "Image", day_src, "NG")
-    _mk(os.path.join(ng_dir, "x.png"), b"NGIMG", 1500)
+    # Bên TRÁI = CCD1: thư mục OK có 2 ảnh (b.jpg mới hơn), NG có 1 ảnh
+    ok1 = os.path.join(src, "Image", day, "CCD1", "OK")
+    _mk(os.path.join(ok1, "a.jpg"), b"OLD", 1000)
+    _mk(os.path.join(ok1, "b.jpg"), b"L_OK_NEW", 2000)
+    _mk(os.path.join(src, "Image", day, "CCD1", "NG", "x.png"), b"L_NG", 1500)
+    # Bên PHẢI = CCD2: 1 ảnh OK khác hẳn
+    _mk(os.path.join(src, "Image", day, "CCD2", "OK", "r.jpg"), b"R_OK", 1700)
 
     # 1) build_dest_name đúng định dạng yêu cầu
     print("== build_dest_name ==")
-    name = iu.build_dest_name("123456", "OK", ".jpg", when)
-    print(" ", name)
-    assert name == "123456_20260609 183415_Passed.jpg", name
+    assert iu.build_dest_name("123456", "OK", ".jpg", when) == \
+        "123456_20260609 183415_Passed.jpg"
     assert iu.build_dest_name("9", "NG", ".png", when) == \
         "9_20260609 183415_Failed.png"
 
-    # 2) find_latest_image lấy ảnh MỚI NHẤT
-    print("\n== find_latest_image (mới nhất) ==")
-    latest = iu.find_latest_image(src, "OK", when=when)
-    print(" ", os.path.basename(latest))
-    assert os.path.basename(latest) == "b.jpg"
+    # 2) find_latest_image theo BÊN (CCD): CCD1 lấy ảnh trái, CCD2 lấy ảnh phải
+    print("\n== find_latest_image theo CCD ==")
+    l_ok = iu.find_latest_image(src, "CCD1", "OK", when=when)
+    assert os.path.basename(l_ok) == "b.jpg" and open(l_ok, "rb").read() == b"L_OK_NEW"
+    r_ok = iu.find_latest_image(src, "CCD2", "OK", when=when)
+    assert open(r_ok, "rb").read() == b"R_OK"   # đúng ảnh bên phải, không lẫn bên trái
 
-    # 3) Tải ảnh OK -> Passed: đúng thư mục ngày + tên + nội dung ảnh mới nhất
-    print("\n== upload OK -> Passed ==")
-    ok, msg, dest = iu.upload_latest_image(src, dst, "123456", "OK", when=when)
+    # 3) Tải ảnh CCD1 OK -> Passed: đích .../<YYYYMMDD>/CCD1/
+    print("\n== upload CCD1 OK -> Passed ==")
+    ok, msg, dest = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK", when=when)
     print(" ", ok, "|", msg)
     assert ok is True
-    assert dest == os.path.join(dst, day_dst,
+    assert dest == os.path.join(dst, day, "CCD1",
                                 "123456_20260609 183415_Passed.jpg")
-    assert os.path.isfile(dest)
-    assert open(dest, "rb").read() == b"NEWEST"      # đúng ảnh mới nhất
+    assert open(dest, "rb").read() == b"L_OK_NEW"
 
-    # 4) Tải ảnh NG -> Failed: giữ phần mở rộng nguồn (.png)
-    print("\n== upload NG -> Failed ==")
-    ok, msg, dest = iu.upload_latest_image(src, dst, "777", "NG", when=when)
-    assert ok is True and dest.endswith("777_20260609 183415_Failed.png")
-    assert open(dest, "rb").read() == b"NGIMG"
+    # 4) Tải ảnh CCD2 NG -> Failed, vào đúng CCD2 (giữ đuôi nguồn)
+    print("\n== upload CCD2 NG -> Failed ==")
+    _mk(os.path.join(src, "Image", day, "CCD2", "NG", "rn.png"), b"R_NG", 1800)
+    ok, msg, dest = iu.upload_latest_image(src, dst, "CCD2", "777", "NG", when=when)
+    assert ok is True
+    assert dest == os.path.join(dst, day, "CCD2",
+                                "777_20260609 183415_Failed.png")
+    assert open(dest, "rb").read() == b"R_NG"
 
-    # 5) Chưa cấu hình đích -> bỏ qua (không lỗi, không copy)
+    # 5) Chưa cấu hình đích -> bỏ qua
     print("\n== chưa cấu hình -> bỏ qua ==")
-    ok, msg, dest = iu.upload_latest_image(src, "", "1", "OK", when=when)
+    ok, _, dest = iu.upload_latest_image(src, "", "CCD1", "1", "OK", when=when)
     assert ok is False and dest is None
-    print(" ", msg)
 
-    # 6) Không có ảnh (ngày khác, không có thư mục) -> bỏ qua
+    # 6) Không có ảnh (ngày khác) -> bỏ qua
     print("\n== không có ảnh -> bỏ qua ==")
     when2 = datetime.datetime(2030, 1, 1, 0, 0, 0)
-    ok, msg, dest = iu.upload_latest_image(src, dst, "1", "OK", when=when2)
+    ok, msg, dest = iu.upload_latest_image(src, dst, "CCD1", "1", "OK", when=when2)
     assert ok is False and dest is None
     print(" ", msg)
 
-    # 7) Trùng tên -> tự thêm hậu tố, KHÔNG ghi đè ảnh cũ
+    # 7) Trùng tên -> tự thêm hậu tố, KHÔNG ghi đè
     print("\n== trùng tên -> không ghi đè ==")
-    first = os.path.join(dst, day_dst, "123456_20260609 183415_Passed.jpg")
-    ok2, _, dest2 = iu.upload_latest_image(src, dst, "123456", "OK", when=when)
-    assert ok2 is True and dest2 != first and os.path.isfile(dest2)
-    assert os.path.isfile(first)                      # ảnh cũ còn nguyên
+    first = os.path.join(dst, day, "CCD1", "123456_20260609 183415_Passed.jpg")
+    ok2, _, dest2 = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK", when=when)
+    assert ok2 is True and dest2 != first and os.path.isfile(dest2) \
+        and os.path.isfile(first)
     print("  ->", os.path.basename(dest2))
 
-    # 8) require_today=False: lấy NGÀY hợp lệ mới nhất, BỎ thư mục tên rác
+    # 8) fallback require_today=False: NGÀY (YYYYMMDD) mới nhất, bỏ thư mục rác
     print("\n== fallback: ngày mới nhất hợp lệ, bỏ thư mục rác ==")
-    # ngày cũ hơn (file mtime cao) + thư mục tên KHÔNG phải ngày ('z' > '2' khi sort)
-    _mk(os.path.join(src, "Image", "2026-06-01", "OK", "old.jpg"), b"OLDDAY", 8000)
-    _mk(os.path.join(src, "Image", "zzz_backup", "OK", "junk.jpg"), b"JUNK", 9999)
+    _mk(os.path.join(src, "Image", "20260601", "CCD1", "OK", "old.jpg"), b"OLDDAY", 8000)
+    _mk(os.path.join(src, "Image", "zzzjunk", "CCD1", "OK", "junk.jpg"), b"JUNK", 9999)
     when3 = datetime.datetime(2027, 1, 1, 12, 0, 0)   # ngày chưa có thư mục
-    latest3 = iu.find_latest_image(src, "OK", when=when3, require_today=False)
-    # phải chọn theo TÊN NGÀY mới nhất (2026-06-09), không theo mtime, bỏ 'zzz_backup'
-    assert latest3 and open(latest3, "rb").read() == b"NEWEST", latest3
-    print("  ->", os.path.relpath(latest3, src))
-    # require_today=True ở ngày trống -> không lùi ngày, trả None
-    assert iu.find_latest_image(src, "OK", when=when3, require_today=True) is None
+    l3 = iu.find_latest_image(src, "CCD1", "OK", when=when3, require_today=False)
+    assert l3 and open(l3, "rb").read() == b"L_OK_NEW", l3   # = ngày 20260609
+    assert iu.find_latest_image(src, "CCD1", "OK", when=when3,
+                                require_today=True) is None
 
     print("\nTEST IMAGE-UPLOADER PASS ✔")
 

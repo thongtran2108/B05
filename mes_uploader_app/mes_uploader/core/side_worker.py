@@ -303,8 +303,9 @@ class SideWorker:
                    values=reading.get("values", []),
                    file=os.path.basename(reading.get("file", "") or ""))
 
-        # tải ảnh AOI (OK/NG) lên link đích — xếp hàng, xử lý ở luồng nền
-        self._enqueue_image_upload(sn, head_type, reading.get("judge", ""))
+        # tải ảnh AOI (theo bên CCD + OK/NG) lên link đích — xếp hàng, nền
+        self._enqueue_image_upload(sn, head_type, side_cfg.ccd_prefix,
+                                   reading.get("judge", ""))
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -336,8 +337,8 @@ class SideWorker:
         self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
 
-    def _enqueue_image_upload(self, sn, head_type, judge):
-        """Xếp yêu cầu tải ảnh vào HÀNG ĐỢI để 1 luồng nền xử lý TUẦN TỰ.
+    def _enqueue_image_upload(self, sn, head_type, ccd, judge):
+        """Xếp yêu cầu tải ảnh (theo bên CCD) vào HÀNG ĐỢI cho 1 luồng nền.
 
         Tuần tự hóa giúp: không sinh vô số luồng khi đích (share) chậm/chết, và
         2 đầu cùng SN không ghi đè tên file của nhau. Bỏ qua im lặng nếu tắt
@@ -352,7 +353,7 @@ class SideWorker:
         head_img = head_image(images, head_type)
         if not head_img.source_dir or not head_img.upload_dir:
             return
-        job = (head_img, images, sn, judge, datetime.datetime.now(),
+        job = (head_img, images, ccd, sn, judge, datetime.datetime.now(),
                self.cfg.paths.require_today)
         try:
             self._img_queue.put_nowait(job)
@@ -373,11 +374,12 @@ class SideWorker:
                 continue
             self._do_image_upload(*job)
 
-    def _do_image_upload(self, head_img, images, sn, judge, when, require_today):
+    def _do_image_upload(self, head_img, images, ccd, sn, judge, when,
+                         require_today):
         try:
             ok, msg, _dest = image_uploader.upload_latest_image(
-                head_img.source_dir, head_img.upload_dir, sn, judge, when=when,
-                sub_image=images.sub_image, ok_dir=images.ok_dir,
+                head_img.source_dir, head_img.upload_dir, ccd, sn, judge,
+                when=when, sub_image=images.sub_image, ok_dir=images.ok_dir,
                 ng_dir=images.ng_dir, extensions=images.extensions,
                 require_today=require_today)
         except Exception as ex:              # noqa: BLE001 (luồng nền: không được chết)

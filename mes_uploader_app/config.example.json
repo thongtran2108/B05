@@ -62,16 +62,16 @@
     "ng_dir": "NG",
     "extensions": [".jpg", ".jpeg", ".png", ".bmp"],
     "img_4x": {
-      "source_dir": "D:/AOI/4X",
-      "upload_dir": "//10.222.48.222/AOI/4X"
+      "source_dir": "D:/4X_RA-1",
+      "upload_dir": "//10.222.48.222/4X_RA-1"
     },
     "img_8x": {
-      "source_dir": "D:/AOI/8X",
-      "upload_dir": "//10.222.48.222/AOI/8X"
+      "source_dir": "D:/8X--AE-1",
+      "upload_dir": "//10.222.48.222/8X--AE-1"
     },
     "img_16x": {
-      "source_dir": "D:/AOI/16X",
-      "upload_dir": "//10.222.48.222/AOI/17G"
+      "source_dir": "D:/16X_RA-1",
+      "upload_dir": "//10.222.48.222/16X_RA-1"
     }
   },
   "left": {
