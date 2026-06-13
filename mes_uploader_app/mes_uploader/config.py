@@ -144,10 +144,11 @@ class PathConfig:
 # ---------------------------------------------------------------------- #
 #  Tải ảnh AOI lên link mạng (copy file sang thư mục chia sẻ)            #
 #    Nguồn ở máy (riêng theo loại đầu):                                   #
-#      <source_dir>/<sub_image>/<YYYY-MM-DD>/<OK|NG>/  -> các file ảnh    #
-#    Đích (riêng theo loại đầu): <upload_dir>/<YYYYMMDD>/                  #
+#      <source_dir>/<sub_image>/<YYYYMMDD>/<CCD1|CCD2>/<OK|NG>/  -> ảnh    #
+#    Đích (riêng theo loại đầu): <upload_dir>/<YYYYMMDD>/ (KHÔNG có CCD)   #
 #  Nhận OK/NG của 1 đầu -> lấy ảnh MỚI NHẤT trong thư mục OK|NG tương ứng #
-#  rồi copy lên đích, đổi tên: <SN>_<YYYYMMDD HHMMSS>_Passed|Failed.<ext> #
+#  copy lên đích, đổi tên (chèn Left=CCD1/Right=CCD2 trước Passed/Failed):#
+#  <SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_<Passed|Failed>_#<đầu>.jpg      #
 # ---------------------------------------------------------------------- #
 @dataclass
 class HeadImageConfig:

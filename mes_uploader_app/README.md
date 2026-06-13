@@ -274,23 +274,25 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 <source_dir>/Image/<YYYYMMDD>/CCD2/OK|NG/   ← ảnh bên PHẢI
 ```
 
-**Đích (link mạng)** — `<upload_dir>/<YYYYMMDD>/<CCD>/`:
+**Đích (link mạng)** — `<upload_dir>/<YYYYMMDD>/` (**KHÔNG còn thư mục con CCD**;
+phân biệt bên bằng `_Left_`/`_Right_` ngay trong **tên file**):
 
 ```
-<upload_dir>/<YYYYMMDD>/CCD1/   (vd //10.222.48.222/16X_RA-1/20260606/CCD1/)
-<upload_dir>/<YYYYMMDD>/CCD2/
+<upload_dir>/<YYYYMMDD>/   (vd //10.222.48.222/16X_RA-1/20260606/)
 ```
 
-- **Bên** quyết định **CCD**: Trái = `CCD1`, Phải = `CCD2` (theo *Tiền tố file* của
-  mỗi bên). **Kết quả** quyết định thư mục con nguồn: `OK`/`NG` (theo judge).
+- **Bên** quyết định **CCD** (chọn thư mục nguồn) và **nhãn bên trong tên file**:
+  Trái = `CCD1` → `Left`, Phải = `CCD2` → `Right` (theo *Tiền tố file* của mỗi
+  bên). **Kết quả** quyết định thư mục con nguồn: `OK`/`NG` (theo judge).
 - Lấy **ảnh mới nhất** (theo thời gian sửa đổi) trong `…/<CCD>/<OK|NG>` rồi tải
-  vào `…/<YYYYMMDD>/<CCD>/` ở đích (ảnh bên nào vào CCD bên đó).
+  **thẳng** vào `…/<YYYYMMDD>/` ở đích (cả hai bên chung 1 thư mục ngày).
 - **Ảnh tải lên LUÔN là `.jpg` nén:** nguồn `.jpg` giữ nguyên (copy, không nén
   lại), nguồn PNG/BMP… được **chuyển sang `.jpg`** theo *Chất lượng nén JPG*
   (`Setting > Tải ảnh`, mặc định 85).
-- **Đổi tên** khi tải lên: `<SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>.jpg`
-  (Passed = OK, Failed = NG; `_#1`, `_#2`… theo **từng đầu** của SN, vd 2 đầu 8X
-  → `_#1`, `_#2`). Ví dụ: `123456_2026.06.09 18.34.15_Passed_#1.jpg`.
+- **Đổi tên** khi tải lên: `<SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_<Passed|Failed>_#<thứ tự đầu>.jpg`
+  (Left = CCD1, Right = CCD2; Passed = OK, Failed = NG; `_#1`, `_#2`… theo **từng
+  đầu** của SN, vd 2 đầu 8X → `_#1`, `_#2`). Ví dụ:
+  `123456_2026.06.09 18.34.15_Left_Passed_#1.jpg`.
 - **"Tải lên"** = ghi file (copy nếu nguồn `.jpg`, nén lại nếu PNG/BMP…) sang
   đường dẫn chia sẻ mạng (UNC, vd `//10.222.48.222/<tên trạm>`). Việc tải chạy ở
   **luồng nền** nên **không làm chậm dây chuyền**; thành công/lỗi đều ghi vào

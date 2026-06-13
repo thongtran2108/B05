@@ -3,8 +3,9 @@
 
 Cấu trúc: <src>/Image/<YYYYMMDD>/<CCD1|CCD2>/<OK|NG>/  (CCD1=Trái, CCD2=Phải).
 - Lấy ảnh MỚI NHẤT theo BÊN (CCD) + OK/NG.
-- Tải sang <đích>/<YYYYMMDD>/<CCD>/ và đổi tên
-  <SN>_<YYYY.MM.DD HH.MM.SS>_Passed|Failed_#<thứ tự đầu>.jpg
+- Tải sang <đích>/<YYYYMMDD>/ (KHÔNG chia thư mục CCD) và đổi tên
+  <SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_Passed|Failed_#<thứ tự đầu>.jpg
+  (Left=CCD1, Right=CCD2).
 - Ảnh tải lên LUÔN là .jpg: nguồn .jpg giữ nguyên (copy), PNG/BMP… -> nén .jpg.
 - Bỏ qua khi chưa cấu hình / không có ảnh; trùng tên thì không ghi đè.
 
@@ -52,10 +53,15 @@ def main():
     # Bên PHẢI = CCD2: 1 ảnh OK kích thước khác hẳn (20x20)
     _mkimg(os.path.join(src, "Image", day, "CCD2", "OK", "r.jpg"), (20, 20), "JPEG", 1700)
 
-    # 1) build_dest_name: <SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>
-    print("== build_dest_name ==")
-    assert iu.build_dest_name("123456", "OK", 1, ".jpg", when) == \
-        "123456_2026.06.09 18.34.15_Passed_#1.jpg"
+    # 1) side_label + build_dest_name: chèn Left/Right NGAY TRƯỚC Passed/Failed
+    print("== side_label + build_dest_name ==")
+    assert iu.side_label("CCD1") == "Left" and iu.side_label("CCD2") == "Right"
+    assert iu.side_label("CCDx") == ""       # CCD lạ -> không chèn nhãn bên
+    assert iu.build_dest_name("123456", "OK", 1, ".jpg", when, side="Left") == \
+        "123456_2026.06.09 18.34.15_Left_Passed_#1.jpg"
+    assert iu.build_dest_name("9", "NG", 2, ".jpg", when, side="Right") == \
+        "9_2026.06.09 18.34.15_Right_Failed_#2.jpg"
+    # không truyền side -> tương thích ngược (không chèn Left/Right)
     assert iu.build_dest_name("9", "NG", 2, ".jpg", when) == \
         "9_2026.06.09 18.34.15_Failed_#2.jpg"
 
@@ -66,24 +72,24 @@ def main():
     r_ok = iu.find_latest_image(src, "CCD2", "OK", when=when)
     assert _jpg(r_ok) == (20, 20)            # đúng ảnh bên phải, không lẫn bên trái
 
-    # 3) Tải ảnh CCD1 OK -> Passed, đầu #1 (nguồn .jpg -> copy giữ nguyên .jpg)
-    print("\n== upload CCD1 OK -> Passed, đầu #1 ==")
+    # 3) Tải ảnh CCD1 OK -> Left_Passed, đầu #1 (nguồn .jpg -> copy giữ nguyên)
+    print("\n== upload CCD1 OK -> Left_Passed, đầu #1 ==")
     ok, msg, dest = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK",
                                            when=when, index=1)
     print(" ", ok, "|", msg)
     assert ok is True
-    assert dest == os.path.join(dst, day, "CCD1",
-                                "123456_2026.06.09 18.34.15_Passed_#1.jpg")
+    assert dest == os.path.join(dst, day,
+                                "123456_2026.06.09 18.34.15_Left_Passed_#1.jpg")
     assert _jpg(dest) == (14, 14)
 
-    # 4) Tải ảnh CCD2 NG -> Failed, đầu #2: nguồn PNG -> NÉN sang .jpg (đuôi .jpg)
-    print("\n== upload CCD2 NG -> Failed, đầu #2 (PNG -> .jpg) ==")
+    # 4) Tải ảnh CCD2 NG -> Right_Failed, đầu #2: nguồn PNG -> NÉN sang .jpg
+    print("\n== upload CCD2 NG -> Right_Failed, đầu #2 (PNG -> .jpg) ==")
     _mkimg(os.path.join(src, "Image", day, "CCD2", "NG", "rn.png"), (12, 12), "PNG", 1800)
     ok, msg, dest = iu.upload_latest_image(src, dst, "CCD2", "777", "NG",
                                            when=when, index=2, jpeg_quality=70)
     assert ok is True
-    assert dest == os.path.join(dst, day, "CCD2",
-                                "777_2026.06.09 18.34.15_Failed_#2.jpg")
+    assert dest == os.path.join(dst, day,
+                                "777_2026.06.09 18.34.15_Right_Failed_#2.jpg")
     assert _jpg(dest) == (12, 12)            # ảnh đã chuyển sang JPEG, giữ kích thước
 
     # 5) Chưa cấu hình đích -> bỏ qua
@@ -100,7 +106,7 @@ def main():
 
     # 7) Trùng tên (cùng SN + cùng đầu #1) -> tự thêm hậu tố, KHÔNG ghi đè
     print("\n== trùng tên -> không ghi đè ==")
-    first = os.path.join(dst, day, "CCD1", "123456_2026.06.09 18.34.15_Passed_#1.jpg")
+    first = os.path.join(dst, day, "123456_2026.06.09 18.34.15_Left_Passed_#1.jpg")
     ok2, _, dest2 = iu.upload_latest_image(src, dst, "CCD1", "123456", "OK",
                                            when=when, index=1)
     assert ok2 is True and dest2 != first and os.path.isfile(dest2) \

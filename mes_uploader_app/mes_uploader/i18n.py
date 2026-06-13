@@ -489,9 +489,9 @@ _TR = {
         "zh": "源 = <探头文件夹>/<图片子目录>/<YYYY-MM-DD>/<OK|NG>；目标 = <链接>/<YYYYMMDD>/。",
     },
     "Ảnh đầu %s": {"en": "%s head image", "zh": "%s 探头图片"},
-    "Đổi tên khi tải: <SN>_<YYYY.MM.DD HH.MM.SS>_Passed|Failed_#<thứ tự đầu>.<ext> (vd 123456_2026.06.09 18.34.15_Passed_#1.jpg; 2 đầu 8X -> _#1, _#2).": {
-        "en": "Rename on upload: <SN>_<YYYY.MM.DD HH.MM.SS>_Passed|Failed_#<head index>.<ext> (e.g. 123456_2026.06.09 18.34.15_Passed_#1.jpg; two 8X heads -> _#1, _#2).",
-        "zh": "上传时重命名：<SN>_<YYYY.MM.DD HH.MM.SS>_Passed|Failed_#<探头序号>.<ext> (例如 123456_2026.06.09 18.34.15_Passed_#1.jpg；2 个 8X 探头 -> _#1、_#2)。",
+    "Đổi tên khi tải: <SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_Passed|Failed_#<thứ tự đầu>.<ext> (Left=CCD1, Right=CCD2; vd 123456_2026.06.09 18.34.15_Left_Passed_#1.jpg; 2 đầu 8X -> _#1, _#2).": {
+        "en": "Rename on upload: <SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_Passed|Failed_#<head index>.<ext> (Left=CCD1, Right=CCD2; e.g. 123456_2026.06.09 18.34.15_Left_Passed_#1.jpg; two 8X heads -> _#1, _#2).",
+        "zh": "上传时重命名：<SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_Passed|Failed_#<探头序号>.<ext> (Left=CCD1，Right=CCD2；例如 123456_2026.06.09 18.34.15_Left_Passed_#1.jpg；2 个 8X 探头 -> _#1、_#2)。",
     },
     "Thư mục ảnh nguồn:": {"en": "Source image folder:", "zh": "源图片文件夹："},
     "Link tải lên (đích):": {"en": "Upload link (destination):", "zh": "上传链接 (目标)："},

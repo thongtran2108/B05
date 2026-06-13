@@ -83,8 +83,10 @@ def main():
     assert calls == [1, 2], "Worker phải tải ảnh đầu #1 rồi #2, nhận: %r" % calls
     assert any(n.endswith("_#1.jpg") for n in names), "Thiếu ảnh _#1"
     assert any(n.endswith("_#2.jpg") for n in names), "Thiếu ảnh _#2"
-    # tên đủ định dạng <SN>_<YYYY.MM.DD HH.MM.SS>_#<idx>.<ext>
+    # tên: <SN>_<YYYY.MM.DD HH.MM.SS>_<Left|Right>_<Passed|Failed>_#<idx>.jpg
     assert all(n.startswith("SN-IMG-7_") for n in names)
+    # bên TRÁI (CCD1) -> nhãn _Left_ trong tên; ảnh nằm thẳng trong <đích>/<ngày>/
+    assert all("_Left_" in n for n in names), names
     print("\nTEST IMAGE-INDEX PASS ✔")
 
 
