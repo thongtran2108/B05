@@ -8,6 +8,12 @@ venv/
 # Cấu hình sinh ra lúc chạy (tạo tự động từ config.example.json)
 mes_uploader_app/config.json
 
+# Dữ liệu sinh ra lúc chạy: nhật ký + Excel xuất ra
+logs/
+mes_uploader_app/logs/
+excel_data/
+mes_uploader_app/excel_data/
+
 # Sản phẩm đóng gói PyInstaller (build_exe.bat / build_exe.sh)
 build/
 dist/

@@ -176,6 +176,20 @@ class ImageConfig:
 
 
 # ---------------------------------------------------------------------- #
+#  Lưu giá trị đo ra Excel (.xlsx) — kèm cột SN                           #
+#    Mỗi bên 1 file theo ngày, cùng định dạng file đo gốc nhưng THÊM SN:  #
+#      SN, Time, Judge, IspTime, Data01, … DataN                         #
+#    File: <output_dir>/<YYYYMMDD>/<tên file đo gốc>.xlsx                 #
+# ---------------------------------------------------------------------- #
+@dataclass
+class ExcelConfig:
+    # Mặc định TẮT (opt-in): bật trong Setting để bắt đầu ghi .xlsx ra đĩa.
+    enabled: bool = False
+    # Thư mục lưu .xlsx (để trống = thư mục 'excel_data' cạnh ứng dụng).
+    output_dir: str = ""
+
+
+# ---------------------------------------------------------------------- #
 #  Toàn bộ cấu hình                                                       #
 # ---------------------------------------------------------------------- #
 @dataclass
@@ -197,6 +211,7 @@ class AppConfig:
     api: ApiConfig = field(default_factory=ApiConfig)
     paths: PathConfig = field(default_factory=PathConfig)
     images: ImageConfig = field(default_factory=ImageConfig)
+    excel: ExcelConfig = field(default_factory=ExcelConfig)
     left: SideConfig = field(default_factory=lambda: SideConfig(
         name="LEFT", ccd_prefix="CCD1", scanner_port="COM1",
         trig_4x="M120", done_4x="M121",
@@ -226,9 +241,9 @@ def _from_dict(cls, data):
             kwargs[f.name] = _api_from_dict(val)
         elif cls is AppConfig and f.name == "images":
             kwargs[f.name] = _images_from_dict(val)
-        elif cls is AppConfig and f.name in ("plc", "paths", "left", "right"):
-            sub_cls = {"plc": PlcConfig, "paths": PathConfig,
-                       "left": SideConfig, "right": SideConfig}[f.name]
+        elif cls is AppConfig and f.name in ("plc", "paths", "left", "right", "excel"):
+            sub_cls = {"plc": PlcConfig, "paths": PathConfig, "left": SideConfig,
+                       "right": SideConfig, "excel": ExcelConfig}[f.name]
             kwargs[f.name] = _from_dict(sub_cls, val)
         elif f.name == "materials":
             kwargs[f.name] = [_from_dict(MaterialConfig, m) for m in val]

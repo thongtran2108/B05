@@ -29,7 +29,7 @@ import queue
 import threading
 import time
 
-from .. import audit, data_reader, image_uploader, mes_api
+from .. import audit, data_reader, excel_export, image_uploader, mes_api
 from ..config import side_addresses, head_count, head_api, head_image
 from ..hardware.mitsubishi_plc import is_word_device
 from ..hardware.plc_client import MockPlcClient
@@ -63,6 +63,8 @@ class SideWorker:
         self._sn_queue = queue.Queue()
         self._img_queue = queue.Queue(maxsize=64)   # hàng đợi tải ảnh (nền)
         self._img_thread = None
+        self._xl_queue = queue.Queue(maxsize=256)   # hàng đợi lưu Excel (nền)
+        self._xl_thread = None
         self._last_plc_err = None        # gộp log lỗi PLC trùng (tránh spam)
 
         self._armed = False
@@ -92,6 +94,9 @@ class SideWorker:
             # chờ ảnh đang tải xong (có giới hạn); nếu đích treo, luồng nền
             # daemon sẽ tự kết thúc cùng tiến trình, không chặn việc dừng.
             self._img_thread.join(timeout=2.0)
+        if self._xl_thread:
+            # chờ ghi nốt các dòng Excel còn trong hàng đợi (có giới hạn).
+            self._xl_thread.join(timeout=2.0)
         if self._owns_plc:                   # chỉ đóng nếu SỞ HỮU (không phải kết nối chung)
             try:
                 self.plc.close()
@@ -311,6 +316,9 @@ class SideWorker:
         self._enqueue_image_upload(sn, head_type, side_cfg.ccd_prefix,
                                    reading.get("judge", ""), idx)
 
+        # lưu giá trị đo ra Excel (kèm cột SN) — xếp hàng, nền.
+        self._enqueue_excel(sn, reading)
+
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
 
@@ -399,6 +407,53 @@ class SideWorker:
             self._emit("log", text=tr("  [ẢNH] %s") % msg)
         else:
             self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % msg)
+
+    # ------------------------------------------------------------------ #
+    #  Lưu giá trị đo ra Excel (kèm cột SN) — luồng nền                   #
+    # ------------------------------------------------------------------ #
+    def _enqueue_excel(self, sn, reading):
+        """Xếp 1 dòng (SN + giá trị đo) vào hàng đợi ghi Excel ở luồng nền.
+
+        Bỏ qua im lặng nếu tắt tính năng. Hàng đợi đầy -> bỏ + ghi nhật ký,
+        KHÔNG chặn dây chuyền. Chỉ truyền dữ liệu cần thiết (đã chốt) sang nền.
+        """
+        excel = getattr(self.cfg, "excel", None)
+        if not excel or not excel.enabled:
+            return
+        out_path = excel_export.output_path(
+            excel_export.resolve_output_dir(self.cfg), reading.get("file", ""))
+        snapshot = {
+            "time": reading.get("time", ""),
+            "judge": reading.get("judge", ""),
+            "isp_time": reading.get("isp_time", ""),
+            "values": list(reading.get("values") or []),
+            "headers": list(reading.get("headers") or []),
+        }
+        try:
+            self._xl_queue.put_nowait((out_path, sn, snapshot))
+        except queue.Full:
+            self._emit("log", text=tr("  [EXCEL] Bỏ qua: hàng đợi đầy"))
+            return
+        if self._xl_thread is None or not self._xl_thread.is_alive():
+            self._xl_thread = threading.Thread(target=self._excel_loop,
+                                               daemon=True)
+            self._xl_thread.start()
+
+    def _excel_loop(self):
+        """Luồng nền: ghi Excel tuần tự; KHI DỪNG vẫn ghi nốt hàng đợi (giữ dữ liệu)."""
+        while True:
+            try:
+                out_path, sn, reading = self._xl_queue.get(timeout=0.2)
+            except queue.Empty:
+                if self._stop.is_set():
+                    return
+                continue
+            try:
+                excel_export.append_reading(out_path, sn, reading)
+                self._emit("log", text=tr("  [EXCEL] Đã lưu %s vào %s")
+                           % (sn, os.path.basename(out_path)))
+            except Exception as ex:          # noqa: BLE001 (luồng nền: không được chết)
+                self._emit("log", text=tr("  [EXCEL] Lỗi lưu: %s") % ex)
 
     def _write_sn_result(self, side_cfg, ok):
         """Ghi kết quả kiểm tra SN về PLC: OK -> 1, NG -> 2.

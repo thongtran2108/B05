@@ -201,6 +201,21 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Thư mục log:"), hlw)
         form.addRow(_help(tr("Mỗi ngày 1 file scan_YYYYMMDD.log: ghi trạng thái quét "
                              "mã, dữ liệu đã gửi và phản hồi của MES.")))
+
+        # --- Lưu giá trị đo ra Excel ---
+        form.addRow(_section(tr("Lưu giá trị đo ra Excel")))
+        self.chk_excel = QCheckBox(tr("Lưu giá trị đo ra Excel (.xlsx, kèm cột SN)"))
+        self.chk_excel.setChecked(self.cfg.excel.enabled)
+        form.addRow(self.chk_excel)
+        self.txt_xldir = QLineEdit(self.cfg.excel.output_dir)
+        self.txt_xldir.setPlaceholderText(tr("(trống = thư mục 'excel_data' cạnh ứng dụng)"))
+        b_xl = QPushButton(tr("Chọn…"))
+        b_xl.clicked.connect(lambda: self._browse_into(self.txt_xldir))
+        hx = QHBoxLayout(); hx.addWidget(self.txt_xldir, 1); hx.addWidget(b_xl)
+        hxw = QWidget(); hxw.setLayout(hx)
+        form.addRow(tr("Thư mục Excel:"), hxw)
+        form.addRow(_help(tr("Mỗi bên 1 file .xlsx/ngày (giống file đo gốc) thêm cột SN: "
+                             "SN, Time, Judge, IspTime, Data01…; mỗi lần đọc 1 dòng.")))
         return _scroll(w)
 
     def _browse_base(self):
@@ -594,6 +609,8 @@ class SettingsDialog(QDialog):
         c.poll_interval_ms = self.spn_poll.value()
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
+        c.excel.enabled = self.chk_excel.isChecked()
+        c.excel.output_dir = self.txt_xldir.text().strip()
 
         c.paths.base_dir = self.txt_base.text().strip()
         c.paths.sub_4x = self.txt_sub4.text().strip()

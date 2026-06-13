@@ -460,6 +460,30 @@ _TR = {
         "en": "One scan_YYYYMMDD.log per day: records scan status, data sent and MES responses.",
         "zh": "每天 1 个 scan_YYYYMMDD.log 文件：记录扫码状态、已发送数据及 MES 响应。",
     },
+    "Lưu giá trị đo ra Excel": {"en": "Save measurements to Excel", "zh": "保存测量值到 Excel"},
+    "Lưu giá trị đo ra Excel (.xlsx, kèm cột SN)": {
+        "en": "Save measurements to Excel (.xlsx, with SN column)",
+        "zh": "保存测量值到 Excel (.xlsx，含 SN 列)",
+    },
+    "(trống = thư mục 'excel_data' cạnh ứng dụng)": {
+        "en": "(empty = 'excel_data' folder next to the app)",
+        "zh": "(留空 = 应用旁的 'excel_data' 文件夹)",
+    },
+    "Thư mục Excel:": {"en": "Excel folder:", "zh": "Excel 文件夹："},
+    "Mỗi bên 1 file .xlsx/ngày (giống file đo gốc) thêm cột SN: SN, Time, Judge, IspTime, Data01…; mỗi lần đọc 1 dòng.": {
+        "en": "One .xlsx per side per day (same as source) plus an SN column: SN, Time, Judge, IspTime, Data01…; one row per reading.",
+        "zh": "每侧每天 1 个 .xlsx (与源文件相同) 并增加 SN 列：SN, Time, Judge, IspTime, Data01…；每次读取 1 行。",
+    },
+    "  [EXCEL] Đã lưu %s vào %s": {
+        "en": "  [EXCEL] Saved %s to %s", "zh": "  [EXCEL] 已保存 %s 到 %s"},
+    "  [EXCEL] Lỗi lưu: %s": {
+        "en": "  [EXCEL] Save error: %s", "zh": "  [EXCEL] 保存出错：%s"},
+    "  [EXCEL] Bỏ qua: hàng đợi đầy": {
+        "en": "  [EXCEL] Skipped: queue full", "zh": "  [EXCEL] 跳过：队列已满"},
+    "Chưa cài thư viện 'openpyxl' để lưu Excel": {
+        "en": "Library 'openpyxl' is not installed for Excel export",
+        "zh": "未安装 'openpyxl' 库，无法导出 Excel",
+    },
     "Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/<OK|NG>; đích = <link>/<YYYYMMDD>/.": {
         "en": "Source = <head folder>/<image sub>/<YYYY-MM-DD>/<OK|NG>; destination = <link>/<YYYYMMDD>/.",
         "zh": "源 = <探头文件夹>/<图片子目录>/<YYYY-MM-DD>/<OK|NG>；目标 = <链接>/<YYYYMMDD>/。",

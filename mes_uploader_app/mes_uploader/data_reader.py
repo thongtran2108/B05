@@ -118,17 +118,27 @@ def _to_float(value):
         return value
 
 
+def _to_num(value):
+    """Số nguyên nếu là số nguyên (vd IspTime 1975), float nếu lẻ, ngược lại giữ nguyên."""
+    try:
+        f = float(value)
+        return int(f) if f.is_integer() else f
+    except (TypeError, ValueError):
+        return value
+
+
 def read_latest_measurement(path):
     """Đọc dòng cuối cùng của file, tách Judge và các giá trị Data01..N.
 
     Trả về dict:
       {
-        "time":    str,
-        "judge":   str (OK/NG),
-        "values":  [float, ...]   # chỉ các cột Data01..N
-        "headers": [str, ...]     # tên cột của các giá trị (Data01..N)
-        "raw":     [...]          # nguyên dòng cuối
-        "file":    path
+        "time":     str,
+        "judge":    str (OK/NG),
+        "isp_time": số/str          # cột IspTime (thời gian kiểm)
+        "values":   [float, ...]    # chỉ các cột Data01..N
+        "headers":  [str, ...]      # tên cột của các giá trị (Data01..N)
+        "raw":      [...]           # nguyên dòng cuối
+        "file":     path
       }
     """
     rows = _read_rows(path)
@@ -149,6 +159,13 @@ def read_latest_measurement(path):
     except StopIteration:
         judge_idx = 1 if len(header) > 1 else 0
 
+    # cột IspTime (thời gian kiểm); file lạ -> cột thứ 3 (index 2) như mẫu
+    try:
+        isp_idx = next(i for i, h in enumerate(header)
+                       if h.lower() in ("isptime", "insptime", "isp_time"))
+    except StopIteration:
+        isp_idx = 2 if len(header) > 2 else -1
+
     # dòng dữ liệu cuối cùng (bỏ qua dòng trống)
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not data_rows:
@@ -156,12 +173,13 @@ def read_latest_measurement(path):
     last = data_rows[-1]
 
     def get(idx):
-        return last[idx] if idx < len(last) else ""
+        return last[idx] if 0 <= idx < len(last) else ""
 
     values = [_to_float(get(i)) for i in data_idx]
     return {
         "time": str(get(0)),
         "judge": str(get(judge_idx)).strip(),
+        "isp_time": _to_num(get(isp_idx)) if isp_idx >= 0 else "",
         "values": values,
         "headers": [header[i] for i in data_idx],
         "raw": list(last),

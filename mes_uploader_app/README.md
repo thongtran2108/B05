@@ -238,6 +238,13 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > quét mã, **dữ liệu đã gửi** (kèm `timer`) và **phản hồi của MES** (mã HTTP +
 > nội dung trả về). Thư mục log để trống = `logs/` cạnh ứng dụng.
 
+> **Lưu giá trị đo ra Excel:** bật ở `Setting > Chung > "Lưu giá trị đo ra Excel"`.
+> Mỗi **bên** một file `.xlsx` **theo ngày**, cùng tên + cùng định dạng file đo
+> gốc nhưng **thêm cột `SN` ở đầu**:
+> `SN, Time, Judge, IspTime, Data01, … DataN`. **Mỗi lần đọc (mỗi đầu) = 1 dòng**
+> (SN tương ứng). File: `<excel_data>/<YYYYMMDD>/<tên file đo gốc>.xlsx` (thư mục
+> để trống = `excel_data/` cạnh ứng dụng). Việc ghi chạy ở **luồng nền**.
+
 > **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC × số đầu)
 > → POST. Trong suốt quá trình này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi
 > POST xong (hoặc SN bị chặn/lỗi) mới nhận mã tiếp theo.
