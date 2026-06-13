@@ -239,15 +239,25 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > nội dung trả về). Thư mục log để trống = `logs/` cạnh ứng dụng.
 
 > **Lưu giá trị đo ra Excel:** bật ở `Setting > Chung > "Lưu giá trị đo ra Excel"`.
-> Mỗi **bên** một file `.xlsx` **theo ngày**, cùng tên + cùng định dạng file đo
-> gốc nhưng **thêm cột `SN` ở đầu**:
-> `SN, Time, Judge, IspTime, Data01, … DataN`. **Mỗi lần đọc (mỗi đầu) = 1 dòng**
-> (SN tương ứng). File: `<excel_data>/<YYYYMMDD>/<tên file đo gốc>.xlsx` (thư mục
-> để trống = `excel_data/` cạnh ứng dụng). Việc ghi chạy ở **luồng nền**.
+> Tạo **file mới** `.xlsx` **theo ngày** (KHÔNG copy cả file gốc): mỗi lần đọc chỉ
+> lấy **dòng cuối** của file đo gốc (đọc nhẹ, không nạp cả file) rồi **append 1
+> dòng** kèm **cột `SN` ở đầu**: `SN, Time, Judge, IspTime, Data01, … DataN`.
+> **Giữ định dạng từng ô** của dòng cuối: **màu chữ** (ô đỏ = ngoài ngưỡng), **in
+> đậm** (header), **number format** (vd `0.000`), màu nền nếu có.
+> **Mỗi loại đầu `4X` / `8X` / `16X` lưu vào THƯ MỤC RIÊNG** (chọn trong Setting;
+> để trống thì dùng "Thư mục chung", trống nữa = `excel_data/` cạnh ứng dụng).
+> File: `<thư mục đầu>/<YYYYMMDD>/<tên file đo gốc>.xlsx`. Ghi chạy ở **luồng nền**.
 
-> **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC × số đầu)
-> → POST. Trong suốt quá trình này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi
-> POST xong (hoặc SN bị chặn/lỗi) mới nhận mã tiếp theo.
+> **Chờ sau tín hiệu:** `Setting > Chung > "Chờ sau tín hiệu"` (`trigger_delay_ms`).
+> Sau khi nhận tín hiệu PLC (sườn lên), worker **chờ thêm** khoảng này rồi MỚI đọc
+> số liệu và lấy ảnh — để máy đo kịp ghi xong file/ảnh **mới nhất**, **tránh lấy
+> nhầm dữ liệu/ảnh cũ**. Mặc định `0` = không chờ. Chờ kiểu **ngắt được** (dừng
+> app thì thoát ngay, không treo).
+
+> **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC → **chờ
+> `trigger_delay_ms`** → đọc số liệu/ảnh) × số đầu → POST. Trong suốt quá trình
+> này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi POST xong (hoặc SN bị
+> chặn/lỗi) mới nhận mã tiếp theo.
 
 ---
 

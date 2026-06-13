@@ -276,11 +276,29 @@ class SideWorker:
         self._emit("status", text=tr("SN %s bị chặn: %s") % (sn, msg))
         return False
 
+    def _wait_data_ready(self):
+        """Chờ 'trigger_delay_ms' sau khi nhận tín hiệu, trước khi đọc dữ liệu/ảnh.
+
+        Chờ kiểu NGẮT ĐƯỢC: trả True nếu đang DỪNG worker (bên gọi nên bỏ qua run
+        này), False nếu chờ xong bình thường (hoặc không cấu hình chờ = 0).
+        """
+        ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
+        if ms <= 0:
+            return False
+        self._emit("log", text=tr("  Chờ %d ms cho số liệu/ảnh sẵn sàng…") % ms)
+        return self._stop.wait(ms / 1000.0)
+
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:
             idx = self._runs + 1
             total = self._total
         self._emit("log", text=tr("Nhận tín hiệu chạy — đầu %d/%d") % (idx, total))
+
+        # Chờ THÊM (nếu cấu hình) để máy đo kịp ghi xong file/ảnh mới nhất trước
+        # khi đọc — tránh lấy nhầm dữ liệu/ảnh của lần trước. Chờ kiểu NGẮT ĐƯỢC:
+        # nếu đang dừng worker thì bỏ qua run này.
+        if self._wait_data_ready():
+            return
 
         # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
         try:
@@ -317,7 +335,7 @@ class SideWorker:
                                    reading.get("judge", ""), idx)
 
         # lưu giá trị đo ra Excel (kèm cột SN) — xếp hàng, nền.
-        self._enqueue_excel(sn, reading)
+        self._enqueue_excel(sn, reading, head_type)
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -411,26 +429,29 @@ class SideWorker:
     # ------------------------------------------------------------------ #
     #  Lưu giá trị đo ra Excel (kèm cột SN) — luồng nền                   #
     # ------------------------------------------------------------------ #
-    def _enqueue_excel(self, sn, reading):
-        """Xếp 1 dòng (SN + giá trị đo) vào hàng đợi ghi Excel ở luồng nền.
+    def _enqueue_excel(self, sn, reading, head_type):
+        """Xếp 1 việc 'append dòng cuối file gốc + cột SN' vào hàng đợi luồng nền.
 
-        Bỏ qua im lặng nếu tắt tính năng. Hàng đợi đầy -> bỏ + ghi nhật ký,
-        KHÔNG chặn dây chuyền. Chỉ truyền dữ liệu cần thiết (đã chốt) sang nền.
+        Bỏ qua im lặng nếu tắt tính năng. ĐÓNG BĂNG nội dung file gốc NGAY (đọc
+        bytes) để luồng nền lấy đúng dòng cuối + giữ định dạng (màu chữ, in đậm,
+        number format) và tránh đua ghi khi nền chạy sau. Thư mục lưu CHỌN THEO
+        LOẠI ĐẦU (4X/8X/16X). Hàng đợi đầy / lỗi đọc -> bỏ + ghi nhật ký, KHÔNG
+        chặn dây chuyền.
         """
         excel = getattr(self.cfg, "excel", None)
         if not excel or not excel.enabled:
             return
+        source_file = reading.get("file", "")
         out_path = excel_export.output_path(
-            excel_export.resolve_output_dir(self.cfg), reading.get("file", ""))
-        snapshot = {
-            "time": reading.get("time", ""),
-            "judge": reading.get("judge", ""),
-            "isp_time": reading.get("isp_time", ""),
-            "values": list(reading.get("values") or []),
-            "headers": list(reading.get("headers") or []),
-        }
+            excel_export.resolve_output_dir(self.cfg, head_type), source_file)
         try:
-            self._xl_queue.put_nowait((out_path, sn, snapshot))
+            with open(source_file, "rb") as f:
+                source_bytes = f.read()
+        except OSError as ex:
+            self._emit("log", text=tr("  [EXCEL] Bỏ qua: không đọc được file gốc (%s)") % ex)
+            return
+        try:
+            self._xl_queue.put_nowait((out_path, sn, source_bytes))
         except queue.Full:
             self._emit("log", text=tr("  [EXCEL] Bỏ qua: hàng đợi đầy"))
             return
@@ -443,13 +464,13 @@ class SideWorker:
         """Luồng nền: ghi Excel tuần tự; KHI DỪNG vẫn ghi nốt hàng đợi (giữ dữ liệu)."""
         while True:
             try:
-                out_path, sn, reading = self._xl_queue.get(timeout=0.2)
+                out_path, sn, source_bytes = self._xl_queue.get(timeout=0.2)
             except queue.Empty:
                 if self._stop.is_set():
                     return
                 continue
             try:
-                excel_export.append_reading(out_path, sn, reading)
+                excel_export.append_reading(out_path, sn, source_bytes)
                 self._emit("log", text=tr("  [EXCEL] Đã lưu %s vào %s")
                            % (sn, os.path.basename(out_path)))
             except Exception as ex:          # noqa: BLE001 (luồng nền: không được chết)
@@ -496,13 +517,14 @@ class SideWorker:
         api = self.cfg.api
         head = head_api(api, head_type)
         result = mes_api.overall_result(readings)
+        result_p = "PASS" if result == "OK" else "FAIL"
         payload = mes_api.build_payload(
-            sn, readings, station_name=head.station_name, emp_no=api.emp_no,
+            sn, readings, station_name=head.station_name, emp_no=api.emp_no, result = result_p,
             include_timer=api.upload_timer)
         self._emit("log", text=tr("Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s")
                    % (len(readings), head_type, payload["sn"], result))
-        if not api.upload_timer:
-            self._emit("log", text=tr("  (Không gửi 'timer' theo cấu hình)"))
+        # if not api.upload_timer:
+        #     self._emit("log", text=tr("  (Không gửi 'timer' theo cấu hình)"))
         # Ghi file log: DỮ LIỆU gửi lên MES (đầy đủ, gồm cả timer nếu có).
         audit.log(self._audit_side, tr("DỮ LIỆU gửi MES: url=%s | sn=%s | station=%s | timer=%s")
                   % (head.url, sn, head.station_name,

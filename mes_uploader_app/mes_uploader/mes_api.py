@@ -56,15 +56,15 @@ def build_timer(readings):
     """
     parts = []
     for read_idx, r in enumerate(readings, start=1):
-        vals = " - ".join(_fmt_value(v) for v in r.get("values", []))
-        parts.append("L%d: %s" % (read_idx, vals))
+        vals = "-".join(_fmt_value(v) for v in r.get("values", []))
+        parts.append("L%d:%s" % (read_idx, vals))
     return "; ".join(parts)
 
 
 # ---------------------------------------------------------------------- #
 #  Dựng payload JSON                                                      #
 # ---------------------------------------------------------------------- #
-def build_payload(sn, readings, station_name="", emp_no="", include_timer=True):
+def build_payload(sn, readings, result, station_name="", emp_no="", include_timer=True):
     """Dựng body POST theo định dạng MES: {"sn", "stationName", "empNo", "timer"}.
 
     sn           : mã quét từ tay scan
@@ -78,6 +78,7 @@ def build_payload(sn, readings, station_name="", emp_no="", include_timer=True):
     payload = {
         "sn": sn,
         "stationName": station_name,
+        "result": result,
         "empNo": emp_no,
     }
     if include_timer:

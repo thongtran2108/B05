@@ -60,11 +60,11 @@ def main():
     # 1) build_payload: bật/tắt 'timer'
     print("== build_payload include_timer ==")
     readings = [{"values": [1.0, 2.0]}, {"values": [3.0]}]
-    on = mes_api.build_payload("S", readings, "ST", "E", include_timer=True)
-    off = mes_api.build_payload("S", readings, "ST", "E", include_timer=False)
+    on = mes_api.build_payload("S", readings, "PASS", "ST", "E", include_timer=True)
+    off = mes_api.build_payload("S", readings, "PASS", "ST", "E", include_timer=False)
     assert "timer" in on and on["timer"], on
     assert "timer" not in off, off
-    assert set(off) == {"sn", "stationName", "empNo"}
+    assert set(off) == {"sn", "stationName", "result", "empNo"}
 
     # 2) Worker TẮT timer -> payload không có 'timer'; log ghi "(không gửi)"
     print("\n== worker: TẮT timer + ghi log ==")

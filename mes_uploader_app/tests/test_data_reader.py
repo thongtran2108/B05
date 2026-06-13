@@ -41,7 +41,7 @@ def main():
     print("\n== build_payload (2 đầu) ==")
     r1 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
     r2 = data_reader.get_latest_for_side(paths, left, "8X", require_today=False)
-    payload = mes_api.build_payload("SN123456", [r1, r2],
+    payload = mes_api.build_payload("SN123456", [r1, r2], result="PASS",
                                     station_name="STATION-8X", emp_no="V3081479")
     n1 = len(r1["values"])
     print("  sn=%s stationName=%s empNo=%s"
@@ -50,15 +50,15 @@ def main():
     assert payload["sn"] == "SN123456"
     assert payload["stationName"] == "STATION-8X"
     assert payload["empNo"] == "V3081479"
-    # payload chỉ gồm đúng 4 trường theo yêu cầu MES
-    assert set(payload) == {"sn", "stationName", "empNo", "timer"}
-    # timer: mỗi đầu 1 nhóm "L<M>: v1 - v2 - ... - vN", các nhóm cách nhau "; "
+    # payload gồm đúng 5 trường theo yêu cầu MES (có thêm 'result')
+    assert set(payload) == {"sn", "stationName", "result", "empNo", "timer"}
+    # timer: mỗi đầu 1 nhóm "L<M>:v1-v2-...-vN", các nhóm cách nhau "; "
     timer = payload["timer"]
     blocks = timer.split("; ")
     assert len(blocks) == 2, "2 đầu -> 2 nhóm L1/L2"
-    assert blocks[0].startswith("L1: ") and blocks[1].startswith("L2: ")
-    vals1 = blocks[0][len("L1: "):].split(" - ")
-    vals2 = blocks[1][len("L2: "):].split(" - ")
+    assert blocks[0].startswith("L1:") and blocks[1].startswith("L2:")
+    vals1 = blocks[0][len("L1:"):].split("-")
+    vals2 = blocks[1][len("L2:"):].split("-")
     assert len(vals1) == n1 and len(vals2) == n1   # đủ số giá trị mỗi đầu
     # giá trị đầu/cuối khớp dữ liệu đọc được
     assert vals1[0] == mes_api._fmt_value(r1["values"][0])
@@ -66,7 +66,7 @@ def main():
 
     # stationName / empNo mặc định rỗng khi không truyền
     print("\n== build_payload mặc định (không truyền stationName/empNo) ==")
-    p2 = mes_api.build_payload("SN1", [r1])
+    p2 = mes_api.build_payload("SN1", [r1], result="PASS")
     assert p2["stationName"] == "" and p2["empNo"] == ""
     print("  OK")
 
