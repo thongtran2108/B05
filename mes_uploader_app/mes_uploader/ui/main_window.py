@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
+from .. import audit
 from ..config import save_config, app_mode
 from ..hardware.plc_client import make_shared_plc
 from ..i18n import tr, set_language, add_listener, remove_listener
@@ -202,6 +203,7 @@ class MainWindow(QMainWindow):
             except Exception as ex:          # noqa: BLE001
                 QMessageBox.warning(self, tr("Lưu cấu hình"),
                                     tr("Không lưu được file cấu hình:\n%s") % ex)
+            audit.configure_from(self.cfg)   # cập nhật bật/tắt + thư mục ghi log
             self.left.apply_config(self.cfg)
             self.right.apply_config(self.cfg)
             self._rebuild_plc()          # cấu hình PLC có thể đổi -> tạo lại kết nối

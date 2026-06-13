@@ -64,7 +64,7 @@ def build_timer(readings):
 # ---------------------------------------------------------------------- #
 #  Dựng payload JSON                                                      #
 # ---------------------------------------------------------------------- #
-def build_payload(sn, readings, station_name="", emp_no=""):
+def build_payload(sn, readings, station_name="", emp_no="", include_timer=True):
     """Dựng body POST theo định dạng MES: {"sn", "stationName", "empNo", "timer"}.
 
     sn           : mã quét từ tay scan
@@ -72,13 +72,17 @@ def build_payload(sn, readings, station_name="", emp_no=""):
                    theo đúng thứ tự các lần chạy (đầu 1, đầu 2, ...).
     station_name : tên trạm theo loại đầu đang chạy (4X / 8X / 16X)
     emp_no       : mã nhân viên
+    include_timer: True -> body có "timer" (toàn bộ giá trị đo); False -> KHÔNG
+                   gửi "timer" (chỉ sn + stationName + empNo).
     """
-    return {
+    payload = {
         "sn": sn,
         "stationName": station_name,
         "empNo": emp_no,
-        "timer": build_timer(readings),
     }
+    if include_timer:
+        payload["timer"] = build_timer(readings)
+    return payload
 
 
 # ---------------------------------------------------------------------- #

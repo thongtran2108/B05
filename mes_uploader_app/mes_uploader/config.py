@@ -112,6 +112,10 @@ class ApiConfig:
     #   use_proxy = True  -> dùng proxy hệ thống, hoặc 'proxy' nếu có nhập
     use_proxy: bool = False
     proxy: str = ""          # vd "http://10.0.0.1:8080" (chỉ khi use_proxy=True)
+    # Tải trường "timer" (toàn bộ giá trị đo) lên MES hay không.
+    #   True  -> body có "timer" (mặc định)
+    #   False -> KHÔNG gửi "timer" (chỉ sn + stationName + empNo)
+    upload_timer: bool = True
 
     # --- API riêng theo loại đầu: chọn đầu nào sẽ chạy theo API tương ứng ---
     api_4x: HeadApiConfig = field(default_factory=HeadApiConfig)
@@ -158,9 +162,13 @@ class ImageConfig:
     sub_image: str = "Image"        # thư mục con chứa ảnh theo ngày
     ok_dir: str = "OK"              # thư mục ảnh khi kết quả OK
     ng_dir: str = "NG"             # thư mục ảnh khi kết quả NG
-    # các phần mở rộng ảnh sẽ tìm (không phân biệt hoa/thường)
+    # các phần mở rộng ảnh sẽ tìm Ở NGUỒN (không phân biệt hoa/thường).
+    # Ảnh TẢI LÊN luôn được lưu dạng .jpg nén (xem image_uploader).
     extensions: List[str] = field(
         default_factory=lambda: [".jpg", ".jpeg", ".png", ".bmp"])
+    # Mức nén JPG (1..100) khi PHẢI chuyển ảnh nguồn (PNG/BMP…) sang .jpg.
+    # Ảnh nguồn vốn là .jpg sẽ được giữ nguyên (không nén lại, tránh giảm chất lượng).
+    jpeg_quality: int = 85
     # API riêng theo loại đầu: chọn đầu nào sẽ tải ảnh theo đường dẫn tương ứng
     img_4x: HeadImageConfig = field(default_factory=HeadImageConfig)
     img_8x: HeadImageConfig = field(default_factory=HeadImageConfig)
@@ -178,6 +186,12 @@ class AppConfig:
     # simulation=False + manual_sn=True => chế độ "PLC thật + nhập SN tay".
     manual_sn: bool = False
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
+
+    # Lưu nhật ký (quét mã, dữ liệu tải lên, phản hồi MES) ra file theo ngày.
+    #   log_enabled = True  -> ghi file logs/scan_YYYYMMDD.log
+    #   log_dir            -> thư mục log (để trống = thư mục 'logs' cạnh ứng dụng)
+    log_enabled: bool = True
+    log_dir: str = ""
 
     plc: PlcConfig = field(default_factory=PlcConfig)
     api: ApiConfig = field(default_factory=ApiConfig)

@@ -10,8 +10,9 @@ Cấu trúc thư mục ảnh ở máy (riêng theo từng loại đầu):
 Khi 1 đầu chạy xong:
     - vào đúng <YYYYMMDD>/<CCD bên đó>/<OK|NG> của NGÀY HÔM NAY
     - lấy ảnh MỚI NHẤT (theo thời gian sửa đổi)
-    - copy sang  <upload_dir>/<YYYYMMDD>/<CCD>/  (tạo thư mục nếu chưa có)
-    - đổi tên:  <SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>.<ext>
+    - tải sang  <upload_dir>/<YYYYMMDD>/<CCD>/  (tạo thư mục nếu chưa có)
+    - LUÔN lưu dạng .jpg nén (nguồn PNG/BMP… -> chuyển .jpg; nguồn .jpg giữ nguyên)
+    - đổi tên:  <SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>.jpg
                 vd  123456_2026.06.09 18.34.15_Passed_#1.jpg
                 (Passed=OK, Failed=NG; #1, #2… theo từng đầu — 2 đầu 8X -> _#1, _#2)
 
@@ -27,8 +28,23 @@ import shutil
 
 from .i18n import tr
 
+try:
+    from PIL import Image                    # nén/chuyển ảnh sang .jpg
+except ImportError:                          # cho phép chạy/test khi chưa cài Pillow
+    Image = None
+
 # Phần mở rộng ảnh mặc định khi không cấu hình (so khớp không phân biệt hoa/thường).
 DEFAULT_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
+
+
+def _encode_jpg(src, dest, quality=85):
+    """Giải mã ảnh nguồn (PNG/BMP/…) rồi LƯU sang .jpg nén. Cần thư viện Pillow."""
+    if Image is None:
+        raise RuntimeError(tr("Chưa cài thư viện 'Pillow' để nén ảnh sang .jpg"))
+    with Image.open(src) as im:
+        if im.mode != "RGB":                 # JPEG không hỗ trợ alpha/bảng màu
+            im = im.convert("RGB")
+        im.save(dest, "JPEG", quality=max(1, min(100, int(quality))), optimize=True)
 
 
 def passed_label(judge):
@@ -154,9 +170,13 @@ def _unique_path(path):
 def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
                         sub_image="Image", ok_dir="OK", ng_dir="NG",
                         extensions=DEFAULT_EXTENSIONS, require_today=True,
-                        index=1):
+                        index=1, jpeg_quality=85):
     """Lấy ảnh mới nhất ở <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>
-    rồi copy sang <upload_dir>/<YYYYMMDD>/<CCD>/ với tên đã đổi.
+    rồi tải sang <upload_dir>/<YYYYMMDD>/<CCD>/ với tên đã đổi.
+
+    Ảnh tải lên LUÔN là .jpg nén: nguồn .jpg -> copy giữ nguyên (không nén lại
+    để khỏi giảm chất lượng); nguồn PNG/BMP/… -> chuyển sang .jpg (mức nén =
+    jpeg_quality).
 
     ccd = 'CCD1' (Trái) / 'CCD2' (Phải). judge (OK/NG) dùng để chọn thư mục
     nguồn VÀ ghi Passed/Failed vào tên; index = thứ tự đầu đo của SN (1, 2, …)
@@ -174,14 +194,19 @@ def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
         where = d or os.path.join(source_dir, sub_image, _day(when), ccd,
                                   _leaf_for(judge, ok_dir, ng_dir))
         return False, tr("Không tìm thấy ảnh mới trong %s") % where, None
-    ext = os.path.splitext(src)[1] or ".jpg"
+    src_ext = os.path.splitext(src)[1].lower()
     day_dir = os.path.join(upload_dir, _day(when), ccd)
     try:
         os.makedirs(day_dir, exist_ok=True)
+        # Tên đích LUÔN đuôi .jpg.
         dest = _unique_path(os.path.join(
-            day_dir, build_dest_name(sn, judge, index, ext, when)))
-        # copy (không phải copy2): để mtime đích = lúc tải, dễ sắp xếp ở đích
-        shutil.copy(src, dest)
-    except Exception as ex:                  # noqa: BLE001  (lỗi mạng/quyền)
-        return False, tr("Lỗi copy ảnh lên '%s': %s") % (upload_dir, ex), None
+            day_dir, build_dest_name(sn, judge, index, ".jpg", when)))
+        if src_ext in (".jpg", ".jpeg"):
+            # Nguồn đã là JPG -> copy giữ nguyên (mtime đích = lúc tải).
+            shutil.copy(src, dest)
+        else:
+            # PNG/BMP/… -> nén sang .jpg.
+            _encode_jpg(src, dest, jpeg_quality)
+    except Exception as ex:                  # noqa: BLE001  (lỗi mạng/quyền/giải mã ảnh)
+        return False, tr("Lỗi tải ảnh lên '%s': %s") % (upload_dir, ex), None
     return True, tr("Đã tải ảnh %s") % os.path.basename(dest), dest

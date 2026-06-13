@@ -206,6 +206,20 @@ _TR = {
         "en": "  [OK] MES accepted (HTTP %s)", "zh": "  [OK] MES 接收成功 (HTTP %s)"},
     "  [FAIL] MES THẤT BẠI: %s": {
         "en": "  [FAIL] MES FAILED: %s", "zh": "  [FAIL] MES 失败：%s"},
+    "  (Không gửi 'timer' theo cấu hình)": {
+        "en": "  (Not sending 'timer' per configuration)",
+        "zh": "  (按配置不发送 'timer')",
+    },
+    "DỮ LIỆU gửi MES: url=%s | sn=%s | station=%s | timer=%s": {
+        "en": "DATA sent to MES: url=%s | sn=%s | station=%s | timer=%s",
+        "zh": "发送至 MES 的数据: url=%s | sn=%s | station=%s | timer=%s",
+    },
+    "(không gửi)": {"en": "(not sent)", "zh": "(未发送)"},
+    "PHẢN HỒI MES: %s (HTTP %s) %s": {
+        "en": "MES RESPONSE: %s (HTTP %s) %s",
+        "zh": "MES 响应: %s (HTTP %s) %s",
+    },
+    "THẤT BẠI": {"en": "FAILED", "zh": "失败"},
     "Hoàn tất SN %s. Chờ quét mã tiếp theo.": {
         "en": "SN %s completed. Waiting for next scan.",
         "zh": "SN %s 完成。等待下一次扫码。",
@@ -423,6 +437,29 @@ _TR = {
     "Thư mục ảnh OK:": {"en": "OK image folder:", "zh": "OK 图片文件夹："},
     "Thư mục ảnh NG:": {"en": "NG image folder:", "zh": "NG 图片文件夹："},
     "Phần mở rộng ảnh:": {"en": "Image extensions:", "zh": "图片扩展名："},
+    "Chất lượng nén JPG:": {"en": "JPG compression quality:", "zh": "JPG 压缩质量："},
+    "Ảnh tải lên LUÔN là .jpg: ảnh .jpg gốc giữ nguyên, PNG/BMP… chuyển sang .jpg theo mức nén này (1–100).": {
+        "en": "Uploaded images are ALWAYS .jpg: source .jpg kept as-is, PNG/BMP… converted to .jpg at this quality (1–100).",
+        "zh": "上传图片始终为 .jpg：源 .jpg 保持不变，PNG/BMP… 按此质量 (1–100) 转为 .jpg。",
+    },
+    "Tải nội dung 'timer' (giá trị đo) lên MES": {
+        "en": "Upload 'timer' content (measured values) to MES",
+        "zh": "向 MES 上传 'timer' 内容 (测量值)",
+    },
+    "Nhật ký (log) ra file": {"en": "Log to file", "zh": "日志写入文件"},
+    "Lưu nhật ký quét mã / tải MES ra file (theo ngày)": {
+        "en": "Save scan / MES-upload log to file (daily)",
+        "zh": "将扫码 / MES 上传日志保存到文件 (按天)",
+    },
+    "(trống = thư mục 'logs' cạnh ứng dụng)": {
+        "en": "(empty = 'logs' folder next to the app)",
+        "zh": "(留空 = 应用旁的 'logs' 文件夹)",
+    },
+    "Thư mục log:": {"en": "Log folder:", "zh": "日志文件夹："},
+    "Mỗi ngày 1 file scan_YYYYMMDD.log: ghi trạng thái quét mã, dữ liệu đã gửi và phản hồi của MES.": {
+        "en": "One scan_YYYYMMDD.log per day: records scan status, data sent and MES responses.",
+        "zh": "每天 1 个 scan_YYYYMMDD.log 文件：记录扫码状态、已发送数据及 MES 响应。",
+    },
     "Nguồn = <thư mục đầu>/<con ảnh>/<YYYY-MM-DD>/<OK|NG>; đích = <link>/<YYYYMMDD>/.": {
         "en": "Source = <head folder>/<image sub>/<YYYY-MM-DD>/<OK|NG>; destination = <link>/<YYYYMMDD>/.",
         "zh": "源 = <探头文件夹>/<图片子目录>/<YYYY-MM-DD>/<OK|NG>；目标 = <链接>/<YYYYMMDD>/。",

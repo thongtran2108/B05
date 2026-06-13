@@ -18,8 +18,9 @@ python -m PyInstaller --noconfirm --clean --onefile --windowed \
   --icon assets/ninja.ico \
   --add-data "assets/ninja.png:assets" \
   --hidden-import openpyxl --hidden-import serial --hidden-import requests \
+  --hidden-import PIL --hidden-import PIL.Image \
   --exclude-module tkinter --exclude-module numpy --exclude-module cv2 \
-  --exclude-module matplotlib --exclude-module PIL --exclude-module pandas \
+  --exclude-module matplotlib --exclude-module pandas \
   --exclude-module cryptography \
   run.py
 

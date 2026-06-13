@@ -185,6 +185,22 @@ class SettingsDialog(QDialog):
             tr("Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)"))
         self.chk_today.setChecked(self.cfg.paths.require_today)
         form.addRow(self.chk_today)
+
+        # --- Nhật ký (log) ra file ---
+        form.addRow(_section(tr("Nhật ký (log) ra file")))
+        self.chk_log = QCheckBox(
+            tr("Lưu nhật ký quét mã / tải MES ra file (theo ngày)"))
+        self.chk_log.setChecked(getattr(self.cfg, "log_enabled", True))
+        form.addRow(self.chk_log)
+        self.txt_logdir = QLineEdit(getattr(self.cfg, "log_dir", ""))
+        self.txt_logdir.setPlaceholderText(tr("(trống = thư mục 'logs' cạnh ứng dụng)"))
+        b_log = QPushButton(tr("Chọn…"))
+        b_log.clicked.connect(lambda: self._browse_into(self.txt_logdir))
+        hl = QHBoxLayout(); hl.addWidget(self.txt_logdir, 1); hl.addWidget(b_log)
+        hlw = QWidget(); hlw.setLayout(hl)
+        form.addRow(tr("Thư mục log:"), hlw)
+        form.addRow(_help(tr("Mỗi ngày 1 file scan_YYYYMMDD.log: ghi trạng thái quét "
+                             "mã, dữ liệu đã gửi và phản hồi của MES.")))
         return _scroll(w)
 
     def _browse_base(self):
@@ -294,6 +310,8 @@ class SettingsDialog(QDialog):
         self.spn_retries.setValue(api.retries)
         self.chk_verify = QCheckBox(tr("Kiểm tra chứng chỉ SSL"))
         self.chk_verify.setChecked(api.verify_ssl)
+        self.chk_timer = QCheckBox(tr("Tải nội dung 'timer' (giá trị đo) lên MES"))
+        self.chk_timer.setChecked(getattr(api, "upload_timer", True))
         self.txt_emp = QLineEdit(api.emp_no)
         self.txt_emp.setPlaceholderText(tr("vd V3081479"))
         self.chk_proxy = QCheckBox(tr("Đi qua proxy hệ thống"))
@@ -303,6 +321,7 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Timeout:"), self.spn_api_to)
         form.addRow(tr("Số lần retry:"), self.spn_retries)
         form.addRow(self.chk_verify)
+        form.addRow(self.chk_timer)
         form.addRow(tr("Mã nhân viên (empNo):"), self.txt_emp)
         form.addRow(self.chk_proxy)
         form.addRow(tr("Proxy thủ công:"), self.txt_proxy)
@@ -359,6 +378,11 @@ class SettingsDialog(QDialog):
         self.chk_img = QCheckBox(tr("Bật tải ảnh AOI lên link đích"))
         self.chk_img.setChecked(img.enabled)
         form.addRow(self.chk_img)
+        self.spn_jpgq = QSpinBox(); self.spn_jpgq.setRange(1, 100)
+        self.spn_jpgq.setValue(getattr(img, "jpeg_quality", 85))
+        form.addRow(tr("Chất lượng nén JPG:"), self.spn_jpgq)
+        form.addRow(_help(tr("Ảnh tải lên LUÔN là .jpg: ảnh .jpg gốc giữ nguyên, "
+                             "PNG/BMP… chuyển sang .jpg theo mức nén này (1–100).")))
 
         # --- Tham số dùng chung cho mọi loại đầu ---
         form.addRow(_section(tr("Cấu trúc thư mục ảnh (mọi loại đầu)")))
@@ -568,6 +592,8 @@ class SettingsDialog(QDialog):
         c.simulation = (mode == "sim")
         c.manual_sn = (mode == "manual_sn")
         c.poll_interval_ms = self.spn_poll.value()
+        c.log_enabled = self.chk_log.isChecked()
+        c.log_dir = self.txt_logdir.text().strip()
 
         c.paths.base_dir = self.txt_base.text().strip()
         c.paths.sub_4x = self.txt_sub4.text().strip()
@@ -587,6 +613,7 @@ class SettingsDialog(QDialog):
         c.api.timeout = self.spn_api_to.value()
         c.api.retries = self.spn_retries.value()
         c.api.verify_ssl = self.chk_verify.isChecked()
+        c.api.upload_timer = self.chk_timer.isChecked()
         c.api.emp_no = self.txt_emp.text().strip()
         c.api.use_proxy = self.chk_proxy.isChecked()
         c.api.proxy = self.txt_proxy.text().strip()
@@ -603,6 +630,7 @@ class SettingsDialog(QDialog):
 
         ci = c.images
         ci.enabled = self.chk_img.isChecked()
+        ci.jpeg_quality = self.spn_jpgq.value()
         ci.sub_image = self.txt_img_sub.text().strip() or "Image"
         ci.ok_dir = self.txt_img_ok.text().strip() or "OK"
         ci.ng_dir = self.txt_img_ng.text().strip() or "NG"

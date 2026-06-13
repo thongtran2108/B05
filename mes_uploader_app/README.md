@@ -229,6 +229,14 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
   "200"). Để trống `post_ok_contains` → chỉ cần HTTP 2xx. Body không khớp →
   báo "gửi lỗi" (banner hổ phách, cột MES `✗`).
 - Có retry (lùi dần 2/4/8s) khi lỗi mạng.
+- **Bật/tắt gửi `timer`:** `Setting > API MES > "Tải nội dung 'timer' (giá trị
+  đo) lên MES"`. Tắt → body chỉ còn `sn` + `stationName` + `empNo` (KHÔNG gửi
+  `timer`).
+
+> **Nhật ký ra file (audit):** bật ở `Setting > Chung > "Lưu nhật ký quét mã /
+> tải MES ra file"`. Mỗi ngày 1 file `logs/scan_YYYYMMDD.log` ghi lại trạng thái
+> quét mã, **dữ liệu đã gửi** (kèm `timer`) và **phản hồi của MES** (mã HTTP +
+> nội dung trả về). Thư mục log để trống = `logs/` cạnh ứng dụng.
 
 > **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC × số đầu)
 > → POST. Trong suốt quá trình này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi
@@ -258,13 +266,18 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 
 - **Bên** quyết định **CCD**: Trái = `CCD1`, Phải = `CCD2` (theo *Tiền tố file* của
   mỗi bên). **Kết quả** quyết định thư mục con nguồn: `OK`/`NG` (theo judge).
-- Lấy **ảnh mới nhất** (theo thời gian sửa đổi) trong `…/<CCD>/<OK|NG>` rồi copy
+- Lấy **ảnh mới nhất** (theo thời gian sửa đổi) trong `…/<CCD>/<OK|NG>` rồi tải
   vào `…/<YYYYMMDD>/<CCD>/` ở đích (ảnh bên nào vào CCD bên đó).
-- **Đổi tên** khi tải lên: `<SN>_<YYYYMMDD HHMMSS>_<Passed|Failed>.<ext>`
-  (Passed = OK, Failed = NG). Ví dụ: `123456_20260609 183415_Passed.jpg`.
-- **"Tải lên" = copy file** sang đường dẫn chia sẻ mạng (UNC, vd
-  `//10.222.48.222/<tên trạm>`). Việc copy chạy ở **luồng nền** nên **không làm
-  chậm dây chuyền**; thành công/lỗi đều ghi vào **NHẬT KÝ** (dòng `[ẢNH]`).
+- **Ảnh tải lên LUÔN là `.jpg` nén:** nguồn `.jpg` giữ nguyên (copy, không nén
+  lại), nguồn PNG/BMP… được **chuyển sang `.jpg`** theo *Chất lượng nén JPG*
+  (`Setting > Tải ảnh`, mặc định 85).
+- **Đổi tên** khi tải lên: `<SN>_<YYYY.MM.DD HH.MM.SS>_<Passed|Failed>_#<thứ tự đầu>.jpg`
+  (Passed = OK, Failed = NG; `_#1`, `_#2`… theo **từng đầu** của SN, vd 2 đầu 8X
+  → `_#1`, `_#2`). Ví dụ: `123456_2026.06.09 18.34.15_Passed_#1.jpg`.
+- **"Tải lên"** = ghi file (copy nếu nguồn `.jpg`, nén lại nếu PNG/BMP…) sang
+  đường dẫn chia sẻ mạng (UNC, vd `//10.222.48.222/<tên trạm>`). Việc tải chạy ở
+  **luồng nền** nên **không làm chậm dây chuyền**; thành công/lỗi đều ghi vào
+  **NHẬT KÝ** (dòng `[ẢNH]`).
 - Ngày dùng định dạng **YYYYMMDD** (giống thư mục Data). Tham số chung: tên thư
   mục con ảnh (`Image`), tên thư mục `OK`/`NG`, danh sách phần mở rộng ảnh.
 - Thư mục ngày nguồn theo cờ **"Chỉ lấy dữ liệu của ngày hôm nay"** (mục

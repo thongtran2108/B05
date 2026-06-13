@@ -10,6 +10,7 @@ liệu ví dụ (ABC, BCD) và bật chế độ GIẢ LẬP để thử ngay kh
 import os
 import sys
 
+from mes_uploader import audit
 from mes_uploader.config import (
     load_config, save_config, MaterialConfig,
 )
@@ -54,6 +55,7 @@ def _seed_if_empty(cfg):
 
 def main():
     cfg = _seed_if_empty(load_config(CONFIG_PATH))
+    audit.configure_from(cfg)            # bật/tắt + đặt thư mục ghi log theo cấu hình
 
     # import Qt muộn để các test/headless không cần PySide6
     from PySide6.QtWidgets import QApplication

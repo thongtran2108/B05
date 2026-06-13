@@ -29,7 +29,7 @@ import queue
 import threading
 import time
 
-from .. import data_reader, image_uploader, mes_api
+from .. import audit, data_reader, image_uploader, mes_api
 from ..config import side_addresses, head_count, head_api, head_image
 from ..hardware.mitsubishi_plc import is_word_device
 from ..hardware.plc_client import MockPlcClient
@@ -53,6 +53,9 @@ class SideWorker:
         self.plc = plc_client
         self.on_event = on_event            # callable(event_type, **data)
         self._owns_plc = owns_plc           # False = kết nối PLC DÙNG CHUNG (không tự đóng)
+        # Nhãn bên cho file log (CCD1 = trái, CCD2 = phải).
+        self._audit_side = getattr(getattr(cfg, side_key, None),
+                                   "ccd_prefix", side_key) or side_key
 
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -387,7 +390,8 @@ class SideWorker:
                 head_img.source_dir, head_img.upload_dir, ccd, sn, judge,
                 when=when, sub_image=images.sub_image, ok_dir=images.ok_dir,
                 ng_dir=images.ng_dir, extensions=images.extensions,
-                require_today=require_today, index=index)
+                require_today=require_today, index=index,
+                jpeg_quality=getattr(images, "jpeg_quality", 85))
         except Exception as ex:              # noqa: BLE001 (luồng nền: không được chết)
             self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % ex)
             return
@@ -438,9 +442,16 @@ class SideWorker:
         head = head_api(api, head_type)
         result = mes_api.overall_result(readings)
         payload = mes_api.build_payload(
-            sn, readings, station_name=head.station_name, emp_no=api.emp_no)
+            sn, readings, station_name=head.station_name, emp_no=api.emp_no,
+            include_timer=api.upload_timer)
         self._emit("log", text=tr("Đủ %d đầu → POST MES (API đầu %s): sn=%s, result=%s")
                    % (len(readings), head_type, payload["sn"], result))
+        if not api.upload_timer:
+            self._emit("log", text=tr("  (Không gửi 'timer' theo cấu hình)"))
+        # Ghi file log: DỮ LIỆU gửi lên MES (đầy đủ, gồm cả timer nếu có).
+        audit.log(self._audit_side, tr("DỮ LIỆU gửi MES: url=%s | sn=%s | station=%s | timer=%s")
+                  % (head.url, sn, head.station_name,
+                     payload.get("timer", tr("(không gửi)"))))
         ok, code, text = mes_api.post_payload(
             head.url, payload,
             timeout=api.timeout, retries=api.retries,
@@ -453,6 +464,10 @@ class SideWorker:
         else:
             self._emit("log", text=tr("  [FAIL] MES THẤT BẠI: %s")
                        % mes_api.short_error(code, text))
+        # Ghi file log: PHẢN HỒI MES (đầy đủ hơn nhật ký màn hình).
+        audit.log(self._audit_side, tr("PHẢN HỒI MES: %s (HTTP %s) %s")
+                  % (tr("OK") if ok else tr("THẤT BẠI"), code,
+                     (text or "").replace("\n", " ")[:500]))
         self._emit("result", sn=sn, result=result, ok=ok)
 
         with self._lock:
@@ -554,6 +569,9 @@ class SideWorker:
             return None
 
     def _emit(self, event_type, **data):
+        # Lưu mọi dòng nhật ký ra file log (theo ngày) để truy vết.
+        if event_type == "log":
+            audit.log(self._audit_side, data.get("text", ""))
         if self.on_event:
             try:
                 self.on_event(event_type, **data)
