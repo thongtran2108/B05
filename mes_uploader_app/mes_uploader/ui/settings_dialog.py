@@ -161,6 +161,14 @@ class SettingsDialog(QDialog):
         self.spn_poll.setSuffix(" ms")
         form.addRow(tr("Chu kỳ đọc PLC:"), self.spn_poll)
 
+        self.spn_delay = QSpinBox(); self.spn_delay.setRange(0, 60000)
+        self.spn_delay.setValue(getattr(self.cfg, "trigger_delay_ms", 0))
+        self.spn_delay.setSuffix(" ms")
+        form.addRow(tr("Chờ sau tín hiệu:"), self.spn_delay)
+        form.addRow(_help(tr("Sau khi nhận tín hiệu PLC, chờ thêm khoảng này rồi mới đọc "
+                             "số liệu và lấy ảnh — để máy đo kịp ghi xong file/ảnh mới "
+                             "nhất, tránh lấy nhầm dữ liệu/ảnh cũ. 0 = không chờ.")))
+
         # đường dẫn
         self.txt_base = QLineEdit(self.cfg.paths.base_dir)
         browse = QPushButton(tr("Chọn…"))
@@ -204,18 +212,36 @@ class SettingsDialog(QDialog):
 
         # --- Lưu giá trị đo ra Excel ---
         form.addRow(_section(tr("Lưu giá trị đo ra Excel")))
-        self.chk_excel = QCheckBox(tr("Lưu giá trị đo ra Excel (.xlsx, kèm cột SN)"))
+        self.chk_excel = QCheckBox(
+            tr("Lưu file đo ra Excel (.xlsx) kèm cột SN — giữ công thức + màu tô"))
         self.chk_excel.setChecked(self.cfg.excel.enabled)
         form.addRow(self.chk_excel)
+
+        def _xl_dir_row(line):
+            line.setPlaceholderText(tr("(trống = dùng 'Thư mục chung' bên dưới)"))
+            btn = QPushButton(tr("Chọn…"))
+            btn.clicked.connect(lambda: self._browse_into(line))
+            h = QHBoxLayout(); h.addWidget(line, 1); h.addWidget(btn)
+            wdg = QWidget(); wdg.setLayout(h)
+            return wdg
+
+        self.txt_xldir_4x = QLineEdit(self.cfg.excel.output_dir_4x)
+        self.txt_xldir_8x = QLineEdit(self.cfg.excel.output_dir_8x)
+        self.txt_xldir_16x = QLineEdit(self.cfg.excel.output_dir_16x)
+        form.addRow(tr("Thư mục Excel 4X:"), _xl_dir_row(self.txt_xldir_4x))
+        form.addRow(tr("Thư mục Excel 8X:"), _xl_dir_row(self.txt_xldir_8x))
+        form.addRow(tr("Thư mục Excel 16X:"), _xl_dir_row(self.txt_xldir_16x))
+
         self.txt_xldir = QLineEdit(self.cfg.excel.output_dir)
         self.txt_xldir.setPlaceholderText(tr("(trống = thư mục 'excel_data' cạnh ứng dụng)"))
         b_xl = QPushButton(tr("Chọn…"))
         b_xl.clicked.connect(lambda: self._browse_into(self.txt_xldir))
         hx = QHBoxLayout(); hx.addWidget(self.txt_xldir, 1); hx.addWidget(b_xl)
         hxw = QWidget(); hxw.setLayout(hx)
-        form.addRow(tr("Thư mục Excel:"), hxw)
-        form.addRow(_help(tr("Mỗi bên 1 file .xlsx/ngày (giống file đo gốc) thêm cột SN: "
-                             "SN, Time, Judge, IspTime, Data01…; mỗi lần đọc 1 dòng.")))
+        form.addRow(tr("Thư mục chung:"), hxw)
+        form.addRow(_help(tr("Mỗi loại đầu 4X/8X/16X lưu vào THƯ MỤC RIÊNG; để trống thì "
+                             "dùng 'Thư mục chung'. File = bản sao file đo gốc (giữ công "
+                             "thức + màu tô) thêm cột SN ở cuối, đóng dấu theo SN đang chạy.")))
         return _scroll(w)
 
     def _browse_base(self):
@@ -607,10 +633,14 @@ class SettingsDialog(QDialog):
         c.simulation = (mode == "sim")
         c.manual_sn = (mode == "manual_sn")
         c.poll_interval_ms = self.spn_poll.value()
+        c.trigger_delay_ms = self.spn_delay.value()
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
         c.excel.enabled = self.chk_excel.isChecked()
         c.excel.output_dir = self.txt_xldir.text().strip()
+        c.excel.output_dir_4x = self.txt_xldir_4x.text().strip()
+        c.excel.output_dir_8x = self.txt_xldir_8x.text().strip()
+        c.excel.output_dir_16x = self.txt_xldir_16x.text().strip()
 
         c.paths.base_dir = self.txt_base.text().strip()
         c.paths.sub_4x = self.txt_sub4.text().strip()

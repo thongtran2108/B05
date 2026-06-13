@@ -46,9 +46,8 @@ def _read_rows(path):
     return _read_csv(path)
 
 
-def _read_csv(path):
-    """Đọc CSV, thử lần lượt nhiều bảng mã hay gặp."""
-    raw = open(path, "rb").read()
+def csv_rows_from_bytes(raw):
+    """Tách nội dung CSV (bytes) thành list dòng; thử lần lượt nhiều bảng mã."""
     last_err = None
     for enc in ("utf-8-sig", "gb18030", "utf-16", "latin-1"):
         try:
@@ -56,7 +55,12 @@ def _read_csv(path):
             return [row for row in csv.reader(io.StringIO(text))]
         except Exception as ex:        # noqa: BLE001
             last_err = ex
-    raise IOError("Khong doc duoc CSV %s: %s" % (path, last_err))
+    raise IOError("Khong doc duoc CSV: %s" % last_err)
+
+
+def _read_csv(path):
+    """Đọc CSV, thử lần lượt nhiều bảng mã hay gặp."""
+    return csv_rows_from_bytes(open(path, "rb").read())
 
 
 def _read_xlsx(path):
