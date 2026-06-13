@@ -161,6 +161,14 @@ class SettingsDialog(QDialog):
         self.spn_poll.setSuffix(" ms")
         form.addRow(tr("Chu kỳ đọc PLC:"), self.spn_poll)
 
+        self.spn_delay = QSpinBox(); self.spn_delay.setRange(0, 60000)
+        self.spn_delay.setValue(getattr(self.cfg, "trigger_delay_ms", 0))
+        self.spn_delay.setSuffix(" ms")
+        form.addRow(tr("Chờ sau tín hiệu:"), self.spn_delay)
+        form.addRow(_help(tr("Sau khi nhận tín hiệu PLC, chờ thêm khoảng này rồi mới đọc "
+                             "số liệu và lấy ảnh — để máy đo kịp ghi xong file/ảnh mới "
+                             "nhất, tránh lấy nhầm dữ liệu/ảnh cũ. 0 = không chờ.")))
+
         # đường dẫn
         self.txt_base = QLineEdit(self.cfg.paths.base_dir)
         browse = QPushButton(tr("Chọn…"))
@@ -625,6 +633,7 @@ class SettingsDialog(QDialog):
         c.simulation = (mode == "sim")
         c.manual_sn = (mode == "manual_sn")
         c.poll_interval_ms = self.spn_poll.value()
+        c.trigger_delay_ms = self.spn_delay.value()
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
         c.excel.enabled = self.chk_excel.isChecked()

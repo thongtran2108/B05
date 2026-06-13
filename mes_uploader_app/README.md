@@ -248,9 +248,16 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > để trống thì dùng "Thư mục chung", trống nữa = `excel_data/` cạnh ứng dụng).
 > File: `<thư mục đầu>/<YYYYMMDD>/<tên file đo gốc>.xlsx`. Ghi chạy ở **luồng nền**.
 
-> **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC × số đầu)
-> → POST. Trong suốt quá trình này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi
-> POST xong (hoặc SN bị chặn/lỗi) mới nhận mã tiếp theo.
+> **Chờ sau tín hiệu:** `Setting > Chung > "Chờ sau tín hiệu"` (`trigger_delay_ms`).
+> Sau khi nhận tín hiệu PLC (sườn lên), worker **chờ thêm** khoảng này rồi MỚI đọc
+> số liệu và lấy ảnh — để máy đo kịp ghi xong file/ảnh **mới nhất**, **tránh lấy
+> nhầm dữ liệu/ảnh cũ**. Mặc định `0` = không chờ. Chờ kiểu **ngắt được** (dừng
+> app thì thoát ngay, không treo).
+
+> **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC → **chờ
+> `trigger_delay_ms`** → đọc số liệu/ảnh) × số đầu → POST. Trong suốt quá trình
+> này **mọi mã quét mới đều bị bỏ qua**; chỉ sau khi POST xong (hoặc SN bị
+> chặn/lỗi) mới nhận mã tiếp theo.
 
 ---
 

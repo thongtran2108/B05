@@ -206,6 +206,10 @@ class AppConfig:
     # simulation=False + manual_sn=True => chế độ "PLC thật + nhập SN tay".
     manual_sn: bool = False
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
+    # Chờ THÊM sau khi nhận tín hiệu PLC (sườn lên) TRƯỚC khi đọc số liệu + lấy
+    # ảnh, để máy đo kịp ghi xong file/ảnh MỚI NHẤT — tránh lấy nhầm dữ liệu/ảnh
+    # của lần trước. 0 = không chờ (giữ hành vi cũ).
+    trigger_delay_ms: int = 0
 
     # Lưu nhật ký (quét mã, dữ liệu tải lên, phản hồi MES) ra file theo ngày.
     #   log_enabled = True  -> ghi file logs/scan_YYYYMMDD.log

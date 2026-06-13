@@ -276,11 +276,29 @@ class SideWorker:
         self._emit("status", text=tr("SN %s bị chặn: %s") % (sn, msg))
         return False
 
+    def _wait_data_ready(self):
+        """Chờ 'trigger_delay_ms' sau khi nhận tín hiệu, trước khi đọc dữ liệu/ảnh.
+
+        Chờ kiểu NGẮT ĐƯỢC: trả True nếu đang DỪNG worker (bên gọi nên bỏ qua run
+        này), False nếu chờ xong bình thường (hoặc không cấu hình chờ = 0).
+        """
+        ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
+        if ms <= 0:
+            return False
+        self._emit("log", text=tr("  Chờ %d ms cho số liệu/ảnh sẵn sàng…") % ms)
+        return self._stop.wait(ms / 1000.0)
+
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:
             idx = self._runs + 1
             total = self._total
         self._emit("log", text=tr("Nhận tín hiệu chạy — đầu %d/%d") % (idx, total))
+
+        # Chờ THÊM (nếu cấu hình) để máy đo kịp ghi xong file/ảnh mới nhất trước
+        # khi đọc — tránh lấy nhầm dữ liệu/ảnh của lần trước. Chờ kiểu NGẮT ĐƯỢC:
+        # nếu đang dừng worker thì bỏ qua run này.
+        if self._wait_data_ready():
+            return
 
         # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
         try:
