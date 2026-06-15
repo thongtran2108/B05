@@ -108,11 +108,13 @@ python run.py
 Mỗi file có cột: `Time, Judge, IspTime, Data01 … DataNN`
 - **Judge** = kết quả OK/NG (phần "jugle").
 - **Data01..N** = các giá trị đo (số cột tự nhận, không cố định).
-- "Lấy nội dung mới nhất" = **dòng cuối cùng** của file mới nhất trong thư mục
-  ngày hôm nay.
+- "Lấy nội dung mới nhất" = **mỗi tín hiệu PLC đọc lại file** và lấy **dòng cuối
+  cùng** (mới nhất). Máy đo ghi thêm 1 dòng cho mỗi đầu nên 2 đầu của 1 SN đọc
+  được 2 dòng khác nhau.
 
-> Phần mềm **tự nhận diện** CSV hay Excel theo *nội dung file* (không dựa vào
-> đuôi). Trong dữ liệu mẫu có file `.csv` thực chất là `.xlsx` — vẫn đọc đúng.
+> **CHỈ đọc file `.xlsx`** (`paths.xlsx_only`, mặc định bật): trong 1 thư mục
+> ngày thường có cả `CCD1_NearStack.csv` lẫn `CCD1_NearStack.xlsx` — phần mềm
+> chỉ lấy `.xlsx` (giá trị đầy đủ độ chính xác), bỏ qua `.csv`.
 
 ### Dữ liệu cập nhật theo ngày — báo lỗi khi thiếu
 

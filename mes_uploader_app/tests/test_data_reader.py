@@ -4,10 +4,14 @@
 Chạy:  python -m tests.test_data_reader
 """
 
+import datetime
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import openpyxl
 
 from mes_uploader import data_reader, mes_api
 from mes_uploader.config import PathConfig, SideConfig
@@ -17,6 +21,7 @@ def main():
     base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "sample_data")
     paths = PathConfig(base_dir=base)
+    paths.xlsx_only = False
     left = SideConfig(name="LEFT", ccd_prefix="CCD1")
     right = SideConfig(name="RIGHT", ccd_prefix="CCD2")
 
@@ -69,6 +74,25 @@ def main():
     p2 = mes_api.build_payload("SN1", [r1], result="PASS")
     assert p2["stationName"] == "" and p2["empNo"] == ""
     print("  OK")
+
+    # CHỈ đọc .xlsx: thư mục có cả CCD1_*.csv (giá trị 111) lẫn .xlsx (222)
+    print("\n== xlsx_only: bỏ .csv, chỉ đọc .xlsx ==")
+    root = tempfile.mkdtemp(prefix="xlsxonly_")
+    day = datetime.datetime.now().strftime("%Y%m%d")
+    d = os.path.join(root, "8X", "data", day)
+    os.makedirs(d, exist_ok=True)
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["Time", "Judge", "IspTime", "Data01"]); ws.append(["t", "OK", 1, 222.0])
+    wb.save(os.path.join(d, "CCD1_NearStack.xlsx")); wb.close()
+    with open(os.path.join(d, "CCD1_NearStack.csv"), "w", encoding="utf-8") as f:
+        f.write("Time,Judge,IspTime,Data01\nt,NG,1,111.0\n")   # .csv MỚI hơn, phải bỏ
+    p = PathConfig(base_dir=root)                               # mặc định xlsx_only=True
+    r = data_reader.get_latest_for_side(p, left, "8X", require_today=False)
+    assert r["values"] == [222.0] and r["judge"] == "OK", r     # = .xlsx, KHÔNG phải .csv
+    p.xlsx_only = False                                         # cho phép .csv -> lấy mới nhất
+    r2 = data_reader.get_latest_for_side(p, left, "8X", require_today=False)
+    assert r2["values"] == [111.0], r2                          # = .csv (mới hơn)
+    print("  xlsx_only=True -> .xlsx(222) | False -> .csv(111)  ✔")
 
     print("\nTAT CA TEST PASS ✔")
 

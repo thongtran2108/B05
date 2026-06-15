@@ -34,6 +34,7 @@ def _time_to_reading(delay_ms):
     cfg.trigger_delay_ms = delay_ms
     cfg.paths = PathConfig(base_dir=SAMPLE)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=1)]
     mes_api.post_payload = lambda *a, **k: (True, 200, "OK")
 

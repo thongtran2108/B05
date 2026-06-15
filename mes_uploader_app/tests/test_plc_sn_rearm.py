@@ -33,6 +33,7 @@ def _run(heads_8x):
     cfg.poll_interval_ms = 20
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.left.sn_result_reg = REG            # ghi 1=OK / 2=NG về D4200
     cfg.materials = [MaterialConfig("ABC", heads_8x=heads_8x)]
     cfg.api.api_8x.url = "http://mes/8x/upload"

@@ -8,12 +8,13 @@ Cấu trúc file (xác minh từ dữ liệu mẫu):
     - IspTime : thời gian kiểm (ms)
     - DataNN  : các giá trị đo (số cột thay đổi tùy file, KHÔNG hardcode)
 
-Lưu ý: trong dữ liệu mẫu, có file mang đuôi .csv nhưng thực chất là XLSX
-(file ZIP, bắt đầu bằng 'PK'). Vì vậy ở đây TỰ NHẬN DIỆN theo nội dung
-chứ không dựa vào đuôi file.
+CHỈ đọc file .xlsx (cờ paths.xlsx_only, mặc định True): trong 1 thư mục ngày
+thường có CẢ <tên>.csv lẫn <tên>.xlsx, ta chỉ lấy .xlsx (giá trị đầy đủ độ
+chính xác). Nội dung file vẫn TỰ NHẬN DIỆN (XLSX bắt đầu 'PK').
 
-"Lấy nội dung mới nhất" = lấy DÒNG DỮ LIỆU CUỐI CÙNG của file mới nhất
-(trong thư mục ngày mới nhất).
+"Lấy nội dung mới nhất" = MỖI lần nhận tín hiệu đọc LẠI file và lấy DÒNG DỮ LIỆU
+CUỐI CÙNG (mới nhất). Máy đo ghi thêm 1 dòng cho mỗi đầu nên 2 đầu của 1 SN đọc
+được 2 dòng khác nhau.
 """
 
 import csv
@@ -84,11 +85,21 @@ def _read_xlsx(path):
 # ---------------------------------------------------------------------- #
 #  Tìm file mới nhất của 1 bên trong thư mục theo ngày                    #
 # ---------------------------------------------------------------------- #
-def find_latest_file(type_dir, name_glob):
+def _keep_xlsx(paths):
+    """Giữ lại các file đuôi .xlsx (không phân biệt hoa/thường).
+
+    Trong 1 thư mục ngày thường có cả <tên>.csv lẫn <tên>.xlsx; theo yêu cầu CHỈ
+    đọc file .xlsx (file .csv bị bỏ qua).
+    """
+    return [p for p in paths if p.lower().endswith(".xlsx")]
+
+
+def find_latest_file(type_dir, name_glob, xlsx_only=True):
     """Tìm file mới nhất khớp 'name_glob' (vd 'CCD1*') trong type_dir.
 
     type_dir thường có cấu trúc <type_dir>/<YYYYMMDD>/CCD1*. Chọn thư mục
     ngày mới nhất trước, nếu không có thì tìm thẳng trong type_dir.
+    xlsx_only=True -> CHỈ xét file .xlsx (bỏ .csv).
     Trả về đường dẫn file, hoặc None nếu không tìm thấy.
     """
     if not os.path.isdir(type_dir):
@@ -106,6 +117,8 @@ def find_latest_file(type_dir, name_glob):
     for d in search_dirs:
         matches = glob.glob(os.path.join(d, name_glob))
         matches = [m for m in matches if os.path.isfile(m)]
+        if xlsx_only:
+            matches = _keep_xlsx(matches)
         if matches:
             # file mới nhất theo thời gian sửa đổi
             return max(matches, key=os.path.getmtime)
@@ -131,12 +144,8 @@ def _to_num(value):
         return value
 
 
-def read_measurement_at(path, ordinal=None):
-    """Đọc 1 DÒNG dữ liệu (mặc định dòng CUỐI), tách Judge và giá trị Data01..N.
-
-    ordinal = thứ tự dòng dữ liệu (1-based, đã bỏ header & dòng trống). None hoặc
-    vượt quá số dòng -> lấy dòng CUỐI; < 1 -> dòng ĐẦU. Dùng để mỗi đầu đo của 1
-    SN lấy ĐÚNG measurement của lần đó (2 đầu không trùng dòng).
+def read_latest_measurement(path):
+    """Đọc dòng cuối cùng của file, tách Judge và các giá trị Data01..N.
 
     Trả về dict:
       {
@@ -178,11 +187,7 @@ def read_measurement_at(path, ordinal=None):
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not data_rows:
         raise DataNotAvailableError(tr("File chưa có dòng dữ liệu: %s") % path)
-    if ordinal is None:
-        last = data_rows[-1]
-    else:                                # chọn dòng theo thứ tự (kẹp trong [1, n])
-        i = max(1, min(int(ordinal), len(data_rows)))
-        last = data_rows[i - 1]
+    last = data_rows[-1]
 
     def get(idx):
         return last[idx] if 0 <= idx < len(last) else ""
@@ -199,32 +204,19 @@ def read_measurement_at(path, ordinal=None):
     }
 
 
-def read_latest_measurement(path):
-    """Đọc dòng dữ liệu CUỐI của file (alias của read_measurement_at(path))."""
-    return read_measurement_at(path, None)
+def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
+                        today=None):
+    """Gộp tìm file + đọc dòng mới nhất cho 1 bên + 1 loại đầu.
 
+    paths_cfg     : PathConfig
+    side_cfg      : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
+    head_type     : '4X', '8X' hoặc '16X'
+    require_today : True  -> CHỈ đọc thư mục ngày hôm nay; thiếu thì báo lỗi
+                            (không lấy nhầm dữ liệu của ngày cũ).
+                    False -> lấy file mới nhất ở thư mục ngày mới nhất (fallback).
+    today         : ghi đè ngày (YYYYMMDD) để kiểm thử; mặc định = hôm nay.
 
-def count_data_rows(path):
-    """Số dòng DỮ LIỆU của file (không tính header, bỏ dòng trống). 0 nếu lỗi/rỗng.
-
-    Dùng để chốt 'mốc' số dòng đã có lúc bắt đầu 1 SN, từ đó mỗi đầu đo lấy đúng
-    dòng kế tiếp (mốc + thứ tự đầu).
-    """
-    try:
-        rows = _read_rows(path)
-    except Exception:                    # noqa: BLE001 (file lỗi/biến mất -> coi như 0)
-        return 0
-    if not rows:
-        return 0
-    return len([r for r in rows[1:] if r and any(str(c).strip() for c in r)])
-
-
-def resolve_side_file(paths_cfg, side_cfg, head_type, require_today=True,
-                      today=None):
-    """Tìm ĐƯỜNG DẪN file đo của 1 bên + 1 loại đầu (chưa đọc nội dung).
-
-    require_today=True  -> CHỈ thư mục ngày hôm nay; thiếu thì DataNotAvailableError.
-    require_today=False -> file mới nhất ở thư mục ngày mới nhất (fallback).
+    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
     """
     if head_type == "4X":
         sub = paths_cfg.sub_4x
@@ -235,6 +227,8 @@ def resolve_side_file(paths_cfg, side_cfg, head_type, require_today=True,
     type_dir = os.path.join(paths_cfg.base_dir, sub)
     name_glob = (paths_cfg.left_glob if side_cfg.ccd_prefix.upper() == "CCD1"
                  else paths_cfg.right_glob)
+    xlsx_only = getattr(paths_cfg, "xlsx_only", True)   # CHỈ đọc .xlsx (bỏ .csv)
+    want = "%s (.xlsx)" % name_glob if xlsx_only else name_glob
 
     if require_today:
         day = today or today_str()
@@ -245,34 +239,17 @@ def resolve_side_file(paths_cfg, side_cfg, head_type, require_today=True,
                    "Thiếu thư mục: %s") % (day, day_dir))
         matches = [m for m in glob.glob(os.path.join(day_dir, name_glob))
                    if os.path.isfile(m)]
+        if xlsx_only:
+            matches = _keep_xlsx(matches)
         if not matches:
             raise DataNotAvailableError(
                 tr("Ngày hôm nay (%s) chưa có file '%s'.\n"
-                   "Trong thư mục: %s") % (day, name_glob, day_dir))
+                   "Trong thư mục: %s") % (day, want, day_dir))
         path = max(matches, key=os.path.getmtime)
     else:
-        path = find_latest_file(type_dir, name_glob)
+        path = find_latest_file(type_dir, name_glob, xlsx_only=xlsx_only)
         if path is None:
             raise DataNotAvailableError(
-                tr("Không tìm thấy file '%s' trong %s") % (name_glob, type_dir))
-    return path
+                tr("Không tìm thấy file '%s' trong %s") % (want, type_dir))
 
-
-def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
-                        today=None, ordinal=None):
-    """Tìm file + đọc 1 dòng cho 1 bên + 1 loại đầu.
-
-    ordinal = thứ tự dòng cần đọc (1-based); None -> dòng CUỐI (hành vi cũ).
-    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
-    """
-    path = resolve_side_file(paths_cfg, side_cfg, head_type, require_today, today)
-    return read_measurement_at(path, ordinal)
-
-
-def count_for_side(paths_cfg, side_cfg, head_type, require_today=True, today=None):
-    """Số dòng dữ liệu hiện có của file 1 bên (0 nếu chưa có file/dữ liệu)."""
-    try:
-        path = resolve_side_file(paths_cfg, side_cfg, head_type, require_today, today)
-    except DataNotAvailableError:
-        return 0
-    return count_data_rows(path)
+    return read_latest_measurement(path)

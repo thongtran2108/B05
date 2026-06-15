@@ -27,6 +27,7 @@ def main():
     cfg.poll_interval_ms = 30
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False    # data mẫu cố định ngày cũ
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", project="Chuyên án A",
                                     heads_8x=2, heads_16x=1)]
     # API riêng theo đầu: chọn 8X -> POST phải đi tới URL + tên trạm của đầu 8X

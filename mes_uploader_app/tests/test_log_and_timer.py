@@ -33,6 +33,7 @@ def _run_worker(upload_timer, log_dir):
     cfg.poll_interval_ms = 20
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=2)]
     cfg.api.api_8x.url = "http://mes/8x/upload"
     cfg.api.api_8x.station_name = "ST-8X"

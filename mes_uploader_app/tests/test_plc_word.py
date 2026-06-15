@@ -35,6 +35,7 @@ def main():
     cfg.poll_interval_ms = 25
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=1)]
     # Dùng THANH GHI WORD (D) cho trigger/done bên trái 8X
     cfg.left.trig_8x = "D10"

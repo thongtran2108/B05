@@ -161,6 +161,7 @@ def test_worker_uses_head_folder():
     cfg.poll_interval_ms = 20
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=2)]
     cfg.api.api_8x.url = "http://mes/8x/upload"
     cfg.excel.enabled = True
@@ -208,6 +209,7 @@ def test_disabled_no_file():
     cfg.poll_interval_ms = 20
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=2)]
     cfg.excel.enabled = False
     cfg.excel.output_dir_8x = root

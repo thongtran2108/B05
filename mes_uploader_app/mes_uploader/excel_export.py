@@ -134,40 +134,28 @@ def _plain_cell(value, bold=False):
             "fill_rgb": None, "fill_type": None}
 
 
-def _pick_row(data_rows, ordinal):
-    """Chọn 1 dòng trong data_rows theo ordinal (1-based, kẹp [1,n]); None -> cuối."""
-    if not data_rows:
-        return []
-    if ordinal is None:
-        return data_rows[-1]
-    i = max(1, min(int(ordinal), len(data_rows)))
-    return data_rows[i - 1]
+def extract_source(source_bytes):
+    """Đọc NHẸ file gốc -> (header_cells, last_cells).
 
-
-def extract_source(source_bytes, ordinal=None):
-    """Đọc NHẸ file gốc -> (header_cells, row_cells).
-
-    ordinal = thứ tự dòng dữ liệu cần lấy (1-based, bỏ header & dòng trống); None
-    hoặc vượt quá -> dòng CUỐI. Nhờ ordinal, mỗi đầu đo của 1 SN lưu ĐÚNG dòng
-    measurement của lần đó (2 đầu không trùng), vẫn GIỮ định dạng từng ô.
-    XLSX (PK): mở read_only (streaming). CSV thật: tách dòng (không có định dạng).
+    XLSX (PK): mở read_only (streaming, KHÔNG nạp cả file vào RAM), chỉ giữ
+    dòng tiêu đề + DÒNG DỮ LIỆU CUỐI kèm định dạng từng ô. CSV thật: tách dòng,
+    lấy header + dòng cuối (không có định dạng). Trả về 2 list dict _cell_style.
     """
     if source_bytes[:2] == b"PK":            # XLSX (kể cả đuôi .csv)
         wb = openpyxl.load_workbook(io.BytesIO(source_bytes), read_only=True,
                                     data_only=True)
         try:
             ws = wb.active
-            header_cells = []
-            data_rows = []
-            first = True
+            header = last = None
             for row in ws.iter_rows():
-                if first:                    # dòng tiêu đề
-                    header_cells = [_cell_style(c) for c in row]
-                    first = False
+                if header is None:
+                    header = row
                     continue
                 if any(c.value not in (None, "") for c in row):
-                    data_rows.append([_cell_style(c) for c in row])
-            return header_cells, _pick_row(data_rows, ordinal)
+                    last = row
+            header_cells = [_cell_style(c) for c in header] if header else []
+            last_cells = [_cell_style(c) for c in last] if last else []
+            return header_cells, last_cells
         finally:
             wb.close()
 
@@ -176,8 +164,8 @@ def extract_source(source_bytes, ordinal=None):
     if not rows:
         return [], []
     header_cells = [_plain_cell(v, bold=True) for v in rows[0]]
-    data_rows = [[_plain_cell(v) for v in r] for r in rows[1:]]
-    return header_cells, _pick_row(data_rows, ordinal)
+    last_cells = [_plain_cell(v) for v in rows[-1]]
+    return header_cells, last_cells
 
 
 # ---------------------------------------------------------------------- #
@@ -209,15 +197,14 @@ def _write_cells(ws, row_idx, first_value, cells, first_bold=False):
         _apply_style(cell, info)
 
 
-def append_reading(out_path, sn, source_bytes, ordinal=None):
-    """Thêm 1 dòng (SN + dòng thứ 'ordinal' của file gốc, GIỮ định dạng) vào đích.
+def append_reading(out_path, sn, source_bytes):
+    """Thêm 1 dòng (SN + dòng cuối file gốc, GIỮ định dạng) vào file đích.
 
-    ordinal = thứ tự dòng dữ liệu của lần đo này (1-based); None -> dòng cuối.
     Tạo file + dòng tiêu đề (in đậm) khi chưa có. Trả về out_path. Cần openpyxl.
     """
     if openpyxl is None:
         raise RuntimeError(tr("Chưa cài thư viện 'openpyxl' để lưu Excel"))
-    header_cells, last_cells = extract_source(source_bytes, ordinal)
+    header_cells, last_cells = extract_source(source_bytes)
     if not last_cells:                       # file gốc chưa có dòng dữ liệu
         raise IOError(tr("File gốc chưa có dòng dữ liệu để lưu"))
     with _lock:

@@ -29,6 +29,7 @@ def main():
     cfg.poll_interval_ms = 25
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False           # data mẫu ngày cũ
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=1, heads_16x=1)]
     # API riêng cho đầu 8X (worker arm 8X) — kiểm tra SN + POST theo API này
     cfg.api.api_8x.check_enabled = True

@@ -139,6 +139,9 @@ class PathConfig:
     # True  -> CHỈ đọc dữ liệu của ngày hôm nay; thiếu thì báo lỗi.
     # False -> lấy dữ liệu ở thư mục ngày mới nhất (cho phép ngày cũ).
     require_today: bool = True
+    # CHỈ đọc file .xlsx (bỏ .csv): thư mục có cả <tên>.csv và <tên>.xlsx thì chỉ
+    # lấy .xlsx (giá trị đầy đủ độ chính xác). False = đọc cả .csv (dùng cho test).
+    xlsx_only: bool = True
 
 
 # ---------------------------------------------------------------------- #

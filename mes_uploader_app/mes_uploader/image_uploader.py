@@ -142,27 +142,24 @@ def _safe_mtime(path):
         return -1.0
 
 
-def _list_images_in_dir(d, extensions):
-    """Danh sách file ảnh trong thư mục d (theo phần mở rộng). [] nếu lỗi/không có.
+def _latest_in_dir(d, extensions):
+    """Ảnh mới nhất (theo mtime) trong thư mục d, hoặc None.
 
-    An toàn với race trên share: listdir lỗi -> [] (bỏ qua).
+    An toàn với race trên share: listdir/getmtime lỗi -> None / bỏ qua file đó.
     """
     if not d:
-        return []
+        return None
     exts = {e.lower() for e in (extensions or DEFAULT_EXTENSIONS)}
     try:
         names = os.listdir(d)
     except OSError:                          # thư mục biến mất / share lỗi
-        return []
+        return None
     files = [os.path.join(d, n) for n in names]
-    return [f for f in files
-            if os.path.splitext(f)[1].lower() in exts and os.path.isfile(f)]
-
-
-def _latest_in_dir(d, extensions):
-    """Ảnh mới nhất (theo mtime) trong thư mục d, hoặc None."""
-    files = _list_images_in_dir(d, extensions)
-    return max(files, key=_safe_mtime) if files else None
+    files = [f for f in files
+             if os.path.splitext(f)[1].lower() in exts and os.path.isfile(f)]
+    if not files:
+        return None
+    return max(files, key=_safe_mtime)
 
 
 def find_latest_image(source_dir, ccd, judge, when=None, sub_image="Image",
@@ -173,48 +170,6 @@ def find_latest_image(source_dir, ccd, judge, when=None, sub_image="Image",
     d = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
                    require_today)
     return _latest_in_dir(d, extensions)
-
-
-def list_side_images(source_dir, ccd, when=None, sub_image="Image",
-                     ok_dir="OK", ng_dir="NG", extensions=DEFAULT_EXTENSIONS,
-                     require_today=True):
-    """Tập đường dẫn ảnh hiện có ở CẢ 2 thư mục OK và NG của 1 bên (CCD).
-
-    Dùng để chốt 'mốc' ảnh đầu SN: ảnh ghi thêm SAU mốc là ảnh của SN này, nhờ
-    đó mỗi đầu đo lấy đúng ảnh của lần đo (không trùng ảnh giữa các đầu).
-    """
-    when = when or datetime.datetime.now()
-    out = set()
-    for leaf in (ok_dir, ng_dir):
-        d = _judge_dir(source_dir, ccd, leaf, when, sub_image, ok_dir, ng_dir,
-                       require_today)
-        out.update(_list_images_in_dir(d, extensions))
-    return out
-
-
-def select_source_image(source_dir, ccd, judge, when=None, sub_image="Image",
-                        ok_dir="OK", ng_dir="NG", extensions=DEFAULT_EXTENSIONS,
-                        require_today=True, base_images=None, used_images=None):
-    """Chọn ảnh NGUỒN cho 1 đầu đo trong <CCD>/<OK|NG>.
-
-    base_images=None -> chế độ cũ: lấy ảnh MỚI NHẤT (theo mtime).
-    base_images là tập (kể cả rỗng) -> lấy ảnh MỚI (không có lúc bắt đầu SN, tức
-    không nằm trong base_images) và CHƯA dùng (không trong used_images), theo thứ
-    tự đo (CŨ -> MỚI) — để đầu #1 lấy ảnh đo trước, đầu #2 lấy ảnh đo sau. Hết
-    ảnh mới -> lùi về ảnh mới nhất (dự phòng, không chặn dây chuyền).
-    """
-    when = when or datetime.datetime.now()
-    d = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
-                   require_today)
-    files = _list_images_in_dir(d, extensions)
-    if not files:
-        return None
-    if base_images is None:                  # chế độ cũ: ảnh mới nhất
-        return max(files, key=_safe_mtime)
-    used = used_images or set()
-    fresh = sorted((f for f in files if f not in base_images and f not in used),
-                   key=_safe_mtime)
-    return fresh[0] if fresh else max(files, key=_safe_mtime)
 
 
 def _unique_path(path):
@@ -233,10 +188,9 @@ def _unique_path(path):
 def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
                         sub_image="Image", ok_dir="OK", ng_dir="NG",
                         extensions=DEFAULT_EXTENSIONS, require_today=True,
-                        index=1, jpeg_quality=85,
-                        base_images=None, used_images=None):
-    """Lấy ảnh ở <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG> rồi tải sang
-    <upload_dir>/<YYYYMMDD>/ với tên đã đổi (KHÔNG chia thư mục CCD).
+                        index=1, jpeg_quality=85):
+    """Lấy ảnh mới nhất ở <source_dir>/<sub_image>/<YYYYMMDD>/<CCD>/<OK|NG>
+    rồi tải sang <upload_dir>/<YYYYMMDD>/ với tên đã đổi (KHÔNG chia thư mục CCD).
 
     Ảnh tải lên LUÔN là .jpg nén: nguồn .jpg -> copy giữ nguyên (không nén lại
     để khỏi giảm chất lượng); nguồn PNG/BMP/… -> chuyển sang .jpg (mức nén =
@@ -245,25 +199,19 @@ def upload_latest_image(source_dir, upload_dir, ccd, sn, judge, when=None,
     ccd = 'CCD1' (Trái) / 'CCD2' (Phải): dùng để CHỌN thư mục nguồn VÀ chèn nhãn
     bên Left/Right vào tên. judge (OK/NG) chọn thư mục nguồn VÀ ghi Passed/Failed
     vào tên; index = thứ tự đầu đo của SN (1, 2, …) -> hậu tố _#index ở cuối tên.
-    base_images/used_images: chốt 'mốc' + ảnh đã dùng của SN để mỗi đầu lấy ĐÚNG
-    ảnh của lần đo (không trùng); base_images=None -> lấy ảnh mới nhất (cũ).
     Trả về (ok: bool, message: str, dest_path: str | None).
     """
     when = when or datetime.datetime.now()
     if not source_dir or not upload_dir:
         return False, tr("Chưa cấu hình thư mục ảnh nguồn/đích"), None
-    src = select_source_image(source_dir, ccd, judge, when, sub_image, ok_dir,
-                              ng_dir, extensions, require_today,
-                              base_images=base_images, used_images=used_images)
+    d = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir, ng_dir,
+                   require_today)
+    src = _latest_in_dir(d, extensions)
     if not src:
         # báo đúng thư mục đã tìm (kể cả khi fallback sang ngày cũ)
-        where = _judge_dir(source_dir, ccd, judge, when, sub_image, ok_dir,
-                           ng_dir, require_today) or os.path.join(
-            source_dir, sub_image, _day(when), ccd,
-            _leaf_for(judge, ok_dir, ng_dir))
+        where = d or os.path.join(source_dir, sub_image, _day(when), ccd,
+                                  _leaf_for(judge, ok_dir, ng_dir))
         return False, tr("Không tìm thấy ảnh mới trong %s") % where, None
-    if used_images is not None:              # đánh dấu đã dùng để đầu sau không lấy lại
-        used_images.add(src)
     src_ext = os.path.splitext(src)[1].lower()
     # Đích KHÔNG chia thư mục con CCD — phân biệt bên bằng _Left_/_Right_ trong tên.
     day_dir = os.path.join(upload_dir, _day(when))

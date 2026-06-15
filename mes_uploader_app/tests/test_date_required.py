@@ -45,6 +45,7 @@ def main():
     # 1) Có thư mục ngày hôm nay -> đọc OK, và đúng là file của ngày hôm nay
     root, today = _make_tree(with_today=True)
     paths = PathConfig(base_dir=root)
+    paths.xlsx_only = False
     r = data_reader.get_latest_for_side(paths, LEFT, "8X", require_today=True)
     assert today in r["file"], "Phải đọc file trong thư mục ngày hôm nay"
     assert len(r["values"]) > 0
@@ -54,6 +55,7 @@ def main():
     # 2) KHÔNG có thư mục ngày hôm nay -> báo lỗi (không lấy ngày cũ)
     root, today = _make_tree(with_today=False)
     paths = PathConfig(base_dir=root)
+    paths.xlsx_only = False
     try:
         data_reader.get_latest_for_side(paths, LEFT, "8X", require_today=True)
         raise AssertionError("Phải ném DataNotAvailableError khi thiếu ngày hôm nay")

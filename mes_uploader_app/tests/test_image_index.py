@@ -36,6 +36,7 @@ def main():
     cfg.poll_interval_ms = 20
     cfg.paths = PathConfig(base_dir=base)
     cfg.paths.require_today = False          # data mẫu + ảnh: lấy ngày mới nhất
+    cfg.paths.xlsx_only = False
     cfg.materials = [MaterialConfig("ABC", heads_8x=2)]
     cfg.api.api_8x.url = "http://mes/8x/upload"
 
