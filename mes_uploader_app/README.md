@@ -246,7 +246,9 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > đậm** (header), **number format** (vd `0.000`), màu nền nếu có.
 > **Mỗi loại đầu `4X` / `8X` / `16X` lưu vào THƯ MỤC RIÊNG** (chọn trong Setting;
 > để trống thì dùng "Thư mục chung", trống nữa = `excel_data/` cạnh ứng dụng).
-> File: `<thư mục đầu>/<YYYYMMDD>/<tên file đo gốc>.xlsx`. Ghi chạy ở **luồng nền**.
+> File: `<thư mục đầu>/<YYYYMMDD>/<tên>.xlsx`, trong đó **tên file đo gốc đổi
+> `CCD1`→`Left`, `CCD2`→`Right`** (vd `CCD1_NearStack.csv` → `Left_NearStack.xlsx`);
+> `SN` vẫn là **cột** bên trong. Ghi chạy ở **luồng nền**.
 
 > **Chờ sau tín hiệu:** `Setting > Chung > "Chờ sau tín hiệu"` (`trigger_delay_ms`).
 > Sau khi nhận tín hiệu PLC (sườn lên), worker **chờ thêm** khoảng này rồi MỚI đọc

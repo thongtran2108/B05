@@ -70,11 +70,13 @@ ROW2 = ["10:18:40", "NG", 1949, 23.5012345678901, 22.0001112223334]
 
 
 def test_output_path():
-    print("== output_path ==")
+    print("== output_path (CCD1->Left, CCD2->Right) ==")
     when = datetime.datetime(2026, 6, 9, 10, 18, 33)
     op = xe.output_path("/out", "/data/20260609/CCD1_NearStack.csv", when=when)
-    assert op == os.path.join("/out", "20260609", "CCD1_NearStack.xlsx"), op
-    print("  ", op)
+    assert op == os.path.join("/out", "20260609", "Left_NearStack.xlsx"), op
+    op2 = xe.output_path("/out", "/data/20260609/CCD2_NearStack.csv", when=when)
+    assert op2 == os.path.join("/out", "20260609", "Right_NearStack.xlsx"), op2
+    print("  ", op, "|", op2)
 
 
 def test_resolve_dir_per_head():

@@ -72,10 +72,25 @@ def resolve_output_dir(cfg, head_type=None):
     return d or default_output_dir()
 
 
+def _name_ccd_to_side(base):
+    """Đổi 'CCD1' -> 'Left', 'CCD2' -> 'Right' trong tên file (giữ phần còn lại).
+
+    File đo gốc đặt tên theo bên (CCD1_* = trái, CCD2_* = phải) nên tên file Excel
+    đích dùng nhãn bên Left/Right cho dễ đọc — đồng bộ với ảnh tải lên.
+    """
+    return base.replace("CCD1", "Left").replace("CCD2", "Right")
+
+
 def output_path(output_dir, source_file, when=None):
-    """Đường dẫn file .xlsx đích: <output_dir>/<YYYYMMDD>/<tên file gốc>.xlsx."""
+    """Đường dẫn file .xlsx đích: <output_dir>/<YYYYMMDD>/<tên>.xlsx.
+
+    Tên = tên file đo gốc nhưng đổi CCD1->Left, CCD2->Right (vd
+    CCD1_NearStack.csv -> Left_NearStack.xlsx). SN vẫn là CỘT bên trong, không
+    đưa vào tên (mỗi ngày 1 file, mỗi lần đo thêm 1 dòng).
+    """
     when = when or datetime.datetime.now()
     base = os.path.splitext(os.path.basename(source_file or "data"))[0] or "data"
+    base = _name_ccd_to_side(base)
     return os.path.join(output_dir, when.strftime("%Y%m%d"), base + ".xlsx")
 
 

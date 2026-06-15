@@ -181,7 +181,7 @@ class ImageConfig:
 #    SAO CHÉP nguyên file đo gốc (GIỮ công thức + màu tô) rồi THÊM cột SN  #
 #    ở cuối; đóng dấu SN vào đúng dòng vừa đọc (khớp theo cột Time).      #
 #    Mỗi loại đầu 4X / 8X / 16X có 1 THƯ MỤC LƯU RIÊNG.                   #
-#    File: <output_dir_*>/<YYYYMMDD>/<tên file đo gốc>.xlsx               #
+#    File: <output_dir_*>/<YYYYMMDD>/<tên>.xlsx (CCD1->Left, CCD2->Right) #
 # ---------------------------------------------------------------------- #
 @dataclass
 class ExcelConfig:

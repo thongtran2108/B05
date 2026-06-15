@@ -241,7 +241,8 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Thư mục chung:"), hxw)
         form.addRow(_help(tr("Mỗi loại đầu 4X/8X/16X lưu vào THƯ MỤC RIÊNG; để trống thì "
                              "dùng 'Thư mục chung'. File = bản sao file đo gốc (giữ công "
-                             "thức + màu tô) thêm cột SN ở cuối, đóng dấu theo SN đang chạy.")))
+                             "thức + màu tô) thêm cột SN ở cuối, đóng dấu theo SN đang chạy. "
+                             "Tên file đổi CCD1->Left, CCD2->Right.")))
         return _scroll(w)
 
     def _browse_base(self):
