@@ -123,6 +123,30 @@ def main():
     assert iu.find_latest_image(src, "CCD1", "OK", when=when3,
                                 require_today=True) is None
 
+    # 9) select_source_image: 2 đầu CÙNG thư mục (OK) lấy ảnh KHÁC nhau, đúng
+    #    thứ tự đo (cũ -> mới). CCD1/OK có a.jpg (mtime 1000) và b.jpg (2000).
+    print("\n== select_source_image: phân biệt ảnh giữa các đầu (cùng thư mục) ==")
+    used = set()
+    s1 = iu.select_source_image(src, "CCD1", "OK", when=when,
+                                base_images=set(), used_images=used)
+    assert os.path.basename(s1) == "a.jpg", s1     # đầu #1 -> ảnh đo TRƯỚC (cũ)
+    used.add(s1)
+    s2 = iu.select_source_image(src, "CCD1", "OK", when=when,
+                                base_images=set(), used_images=used)
+    assert os.path.basename(s2) == "b.jpg", s2     # đầu #2 -> ảnh SAU, KHÔNG trùng
+    used.add(s2)
+    s3 = iu.select_source_image(src, "CCD1", "OK", when=when,
+                                base_images=set(), used_images=used)
+    assert os.path.basename(s3) == "b.jpg", s3     # hết ảnh mới -> lùi ảnh mới nhất
+    # base_images=None -> chế độ cũ: luôn ảnh mới nhất; ảnh đã có lúc đầu SN bị loại
+    assert os.path.basename(
+        iu.select_source_image(src, "CCD1", "OK", when=when)) == "b.jpg"
+    base = {os.path.join(src, "Image", day, "CCD1", "OK", "b.jpg")}
+    assert os.path.basename(
+        iu.select_source_image(src, "CCD1", "OK", when=when,
+                               base_images=base)) == "a.jpg"   # b đã có -> lấy a
+    print("  đầu#1=a.jpg | đầu#2=b.jpg | hết->b.jpg | mốc loại b->a  ✔")
+
     print("\nTEST IMAGE-UPLOADER PASS ✔")
 
 

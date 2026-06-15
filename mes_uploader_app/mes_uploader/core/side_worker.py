@@ -75,6 +75,11 @@ class SideWorker:
         self._readings = []
         self._runs = 0
         self._total = 0
+        # 'Mốc' đầu SN để mỗi đầu lấy ĐÚNG measurement/ảnh của lần đo đó (2 đầu
+        # cùng SN không trùng dòng/ảnh): số dòng dữ liệu đã có + tập ảnh đã có.
+        self._row_base = 0
+        self._sn_base_images = set()
+        self._sn_used_images = set()
 
     # ------------------------------------------------------------------ #
     #  Điều khiển từ giao diện (luồng GUI)                                #
@@ -243,6 +248,7 @@ class SideWorker:
             self._runs = 0
             self._total = total
             self._state = ST_RUNNING
+        self._capture_sn_baseline(side_cfg, head_type)
         self._emit("state", state=ST_RUNNING)
         self._emit("sn", sn=sn)
         self._emit("progress", done=0, total=total)
@@ -250,6 +256,32 @@ class SideWorker:
                    % (sn, total, head_type))
         self._emit("log", text=tr("── Bắt đầu SN %s | mã liệu %s | %d đầu %s ──")
                    % (sn, mat_name, total, head_type))
+
+    def _capture_sn_baseline(self, side_cfg, head_type):
+        """Chốt 'mốc' đầu SN: số dòng dữ liệu + tập ảnh ĐÃ CÓ. Sau mốc này, dòng
+        & ảnh ghi thêm là của SN này -> mỗi đầu lấy đúng phần của lần đo đó."""
+        require_today = self.cfg.paths.require_today
+        try:
+            self._row_base = data_reader.count_for_side(
+                self.cfg.paths, side_cfg, head_type, require_today=require_today)
+        except Exception:                    # noqa: BLE001 (không chốt được -> coi như 0)
+            self._row_base = 0
+        self._sn_used_images = set()
+        self._sn_base_images = set()
+        images = getattr(self.cfg, "images", None)
+        if not images or not images.enabled:
+            return
+        head_img = head_image(images, head_type)
+        if not head_img.source_dir:
+            return
+        try:
+            self._sn_base_images = image_uploader.list_side_images(
+                head_img.source_dir, side_cfg.ccd_prefix,
+                sub_image=images.sub_image, ok_dir=images.ok_dir,
+                ng_dir=images.ng_dir, extensions=images.extensions,
+                require_today=require_today)
+        except Exception:                    # noqa: BLE001
+            self._sn_base_images = set()
 
     def _check_sn(self, sn, head_type):
         """GET kiểm tra SN theo API của loại đầu. True=hợp lệ (chạy), False=chặn."""
@@ -302,9 +334,11 @@ class SideWorker:
 
         # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
         try:
+            # Mỗi đầu đọc ĐÚNG dòng của lần đo đó: mốc đầu SN + thứ tự đầu (idx).
             reading = data_reader.get_latest_for_side(
                 self.cfg.paths, side_cfg, head_type,
-                require_today=self.cfg.paths.require_today)
+                require_today=self.cfg.paths.require_today,
+                ordinal=self._row_base + idx)
             self._emit("log", text=tr("  Đọc %s: judge=%s, %d giá trị")
                        % (os.path.basename(reading["file"]),
                           reading["judge"], len(reading["values"])))
@@ -335,7 +369,8 @@ class SideWorker:
                                    reading.get("judge", ""), idx)
 
         # lưu giá trị đo ra Excel (kèm cột SN) — xếp hàng, nền.
-        self._enqueue_excel(sn, reading, head_type)
+        # ordinal = mốc đầu SN + thứ tự đầu -> mỗi đầu lưu ĐÚNG dòng của mình.
+        self._enqueue_excel(sn, reading, head_type, self._row_base + idx)
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -388,8 +423,11 @@ class SideWorker:
         head_img = head_image(images, head_type)
         if not head_img.source_dir or not head_img.upload_dir:
             return
+        # Kèm 'mốc' ảnh đầu SN + tập ảnh đã dùng (đối tượng RIÊNG mỗi SN) để đầu
+        # sau không lấy trùng ảnh đầu trước; luồng nền xử lý tuần tự nên an toàn.
         job = (head_img, images, ccd, sn, judge, index, datetime.datetime.now(),
-               self.cfg.paths.require_today)
+               self.cfg.paths.require_today, self._sn_base_images,
+               self._sn_used_images)
         try:
             self._img_queue.put_nowait(job)
         except queue.Full:
@@ -410,14 +448,15 @@ class SideWorker:
             self._do_image_upload(*job)
 
     def _do_image_upload(self, head_img, images, ccd, sn, judge, index, when,
-                         require_today):
+                         require_today, base_images, used_images):
         try:
             ok, msg, _dest = image_uploader.upload_latest_image(
                 head_img.source_dir, head_img.upload_dir, ccd, sn, judge,
                 when=when, sub_image=images.sub_image, ok_dir=images.ok_dir,
                 ng_dir=images.ng_dir, extensions=images.extensions,
                 require_today=require_today, index=index,
-                jpeg_quality=getattr(images, "jpeg_quality", 85))
+                jpeg_quality=getattr(images, "jpeg_quality", 85),
+                base_images=base_images, used_images=used_images)
         except Exception as ex:              # noqa: BLE001 (luồng nền: không được chết)
             self._emit("log", text=tr("  [ẢNH] Bỏ qua: %s") % ex)
             return
@@ -429,14 +468,13 @@ class SideWorker:
     # ------------------------------------------------------------------ #
     #  Lưu giá trị đo ra Excel (kèm cột SN) — luồng nền                   #
     # ------------------------------------------------------------------ #
-    def _enqueue_excel(self, sn, reading, head_type):
-        """Xếp 1 việc 'append dòng cuối file gốc + cột SN' vào hàng đợi luồng nền.
+    def _enqueue_excel(self, sn, reading, head_type, ordinal):
+        """Xếp 1 việc 'append dòng thứ ordinal của file gốc + cột SN' vào hàng đợi.
 
-        Bỏ qua im lặng nếu tắt tính năng. ĐÓNG BĂNG nội dung file gốc NGAY (đọc
-        bytes) để luồng nền lấy đúng dòng cuối + giữ định dạng (màu chữ, in đậm,
-        number format) và tránh đua ghi khi nền chạy sau. Thư mục lưu CHỌN THEO
-        LOẠI ĐẦU (4X/8X/16X). Hàng đợi đầy / lỗi đọc -> bỏ + ghi nhật ký, KHÔNG
-        chặn dây chuyền.
+        ordinal = thứ tự dòng của lần đo này (mốc đầu SN + thứ tự đầu) -> mỗi đầu
+        lưu ĐÚNG dòng của mình (2 đầu không trùng). ĐÓNG BĂNG nội dung file gốc
+        NGAY (đọc bytes) để luồng nền giữ định dạng + tránh đua ghi. Thư mục lưu
+        CHỌN THEO LOẠI ĐẦU (4X/8X/16X). Hàng đợi đầy / lỗi đọc -> bỏ + ghi nhật ký.
         """
         excel = getattr(self.cfg, "excel", None)
         if not excel or not excel.enabled:
@@ -451,7 +489,7 @@ class SideWorker:
             self._emit("log", text=tr("  [EXCEL] Bỏ qua: không đọc được file gốc (%s)") % ex)
             return
         try:
-            self._xl_queue.put_nowait((out_path, sn, source_bytes))
+            self._xl_queue.put_nowait((out_path, sn, source_bytes, ordinal))
         except queue.Full:
             self._emit("log", text=tr("  [EXCEL] Bỏ qua: hàng đợi đầy"))
             return
@@ -464,13 +502,13 @@ class SideWorker:
         """Luồng nền: ghi Excel tuần tự; KHI DỪNG vẫn ghi nốt hàng đợi (giữ dữ liệu)."""
         while True:
             try:
-                out_path, sn, source_bytes = self._xl_queue.get(timeout=0.2)
+                out_path, sn, source_bytes, ordinal = self._xl_queue.get(timeout=0.2)
             except queue.Empty:
                 if self._stop.is_set():
                     return
                 continue
             try:
-                excel_export.append_reading(out_path, sn, source_bytes)
+                excel_export.append_reading(out_path, sn, source_bytes, ordinal)
                 self._emit("log", text=tr("  [EXCEL] Đã lưu %s vào %s")
                            % (sn, os.path.basename(out_path)))
             except Exception as ex:          # noqa: BLE001 (luồng nền: không được chết)

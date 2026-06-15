@@ -131,8 +131,12 @@ def _to_num(value):
         return value
 
 
-def read_latest_measurement(path):
-    """Đọc dòng cuối cùng của file, tách Judge và các giá trị Data01..N.
+def read_measurement_at(path, ordinal=None):
+    """Đọc 1 DÒNG dữ liệu (mặc định dòng CUỐI), tách Judge và giá trị Data01..N.
+
+    ordinal = thứ tự dòng dữ liệu (1-based, đã bỏ header & dòng trống). None hoặc
+    vượt quá số dòng -> lấy dòng CUỐI; < 1 -> dòng ĐẦU. Dùng để mỗi đầu đo của 1
+    SN lấy ĐÚNG measurement của lần đó (2 đầu không trùng dòng).
 
     Trả về dict:
       {
@@ -174,7 +178,11 @@ def read_latest_measurement(path):
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not data_rows:
         raise DataNotAvailableError(tr("File chưa có dòng dữ liệu: %s") % path)
-    last = data_rows[-1]
+    if ordinal is None:
+        last = data_rows[-1]
+    else:                                # chọn dòng theo thứ tự (kẹp trong [1, n])
+        i = max(1, min(int(ordinal), len(data_rows)))
+        last = data_rows[i - 1]
 
     def get(idx):
         return last[idx] if 0 <= idx < len(last) else ""
@@ -191,19 +199,32 @@ def read_latest_measurement(path):
     }
 
 
-def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
-                        today=None):
-    """Gộp tìm file + đọc dòng mới nhất cho 1 bên + 1 loại đầu.
+def read_latest_measurement(path):
+    """Đọc dòng dữ liệu CUỐI của file (alias của read_measurement_at(path))."""
+    return read_measurement_at(path, None)
 
-    paths_cfg     : PathConfig
-    side_cfg      : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
-    head_type     : '4X', '8X' hoặc '16X'
-    require_today : True  -> CHỈ đọc thư mục ngày hôm nay; thiếu thì báo lỗi
-                            (không lấy nhầm dữ liệu của ngày cũ).
-                    False -> lấy file mới nhất ở thư mục ngày mới nhất (fallback).
-    today         : ghi đè ngày (YYYYMMDD) để kiểm thử; mặc định = hôm nay.
 
-    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
+def count_data_rows(path):
+    """Số dòng DỮ LIỆU của file (không tính header, bỏ dòng trống). 0 nếu lỗi/rỗng.
+
+    Dùng để chốt 'mốc' số dòng đã có lúc bắt đầu 1 SN, từ đó mỗi đầu đo lấy đúng
+    dòng kế tiếp (mốc + thứ tự đầu).
+    """
+    try:
+        rows = _read_rows(path)
+    except Exception:                    # noqa: BLE001 (file lỗi/biến mất -> coi như 0)
+        return 0
+    if not rows:
+        return 0
+    return len([r for r in rows[1:] if r and any(str(c).strip() for c in r)])
+
+
+def resolve_side_file(paths_cfg, side_cfg, head_type, require_today=True,
+                      today=None):
+    """Tìm ĐƯỜNG DẪN file đo của 1 bên + 1 loại đầu (chưa đọc nội dung).
+
+    require_today=True  -> CHỈ thư mục ngày hôm nay; thiếu thì DataNotAvailableError.
+    require_today=False -> file mới nhất ở thư mục ngày mới nhất (fallback).
     """
     if head_type == "4X":
         sub = paths_cfg.sub_4x
@@ -234,5 +255,24 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
         if path is None:
             raise DataNotAvailableError(
                 tr("Không tìm thấy file '%s' trong %s") % (name_glob, type_dir))
+    return path
 
-    return read_latest_measurement(path)
+
+def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
+                        today=None, ordinal=None):
+    """Tìm file + đọc 1 dòng cho 1 bên + 1 loại đầu.
+
+    ordinal = thứ tự dòng cần đọc (1-based); None -> dòng CUỐI (hành vi cũ).
+    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
+    """
+    path = resolve_side_file(paths_cfg, side_cfg, head_type, require_today, today)
+    return read_measurement_at(path, ordinal)
+
+
+def count_for_side(paths_cfg, side_cfg, head_type, require_today=True, today=None):
+    """Số dòng dữ liệu hiện có của file 1 bên (0 nếu chưa có file/dữ liệu)."""
+    try:
+        path = resolve_side_file(paths_cfg, side_cfg, head_type, require_today, today)
+    except DataNotAvailableError:
+        return 0
+    return count_data_rows(path)
