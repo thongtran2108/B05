@@ -18,6 +18,22 @@ except ImportError:
     serial = None
 
 
+def list_serial_ports():
+    """Danh sách cổng COM hiện có trên máy (vd ['COM1', 'COM3']).
+
+    Trả về [] nếu chưa cài pyserial hoặc không có cổng nào. Dùng cho giao diện:
+    thả xuống cho người dùng CHỌN thay vì gõ tay.
+    """
+    try:
+        from serial.tools import list_ports
+    except Exception:                # noqa: BLE001 (thiếu pyserial / lỗi import)
+        return []
+    try:
+        return sorted(p.device for p in list_ports.comports())
+    except Exception:                # noqa: BLE001 (lỗi liệt kê cổng)
+        return []
+
+
 class SerialScanner:
     """Đọc mã liên tục từ 1 cổng COM trên luồng nền."""
 

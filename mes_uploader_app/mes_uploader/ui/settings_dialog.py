@@ -22,8 +22,27 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import AppConfig, MaterialConfig, app_mode
+from ..hardware.scanner import list_serial_ports
 from ..i18n import tr, set_language, current_language, available_languages
 from ..material_import import parse_materials
+
+
+def _com_combo(current):
+    """Ô CHỌN cổng COM: thả xuống các cổng COM đang có trên máy (có thể gõ thêm).
+
+    Tự dò cổng bằng pyserial; nếu cổng đã lưu không nằm trong danh sách (vd chưa
+    cắm) vẫn thêm vào để giữ giá trị. Đọc lại bằng .currentText().
+    """
+    cb = QComboBox()
+    cb.setEditable(True)                         # cho phép gõ tay nếu cổng chưa hiện
+    cb.setInsertPolicy(QComboBox.NoInsert)
+    ports = list_serial_ports()
+    cb.addItems(ports)
+    cur = (current or "").strip()
+    if cur and cur not in ports:
+        cb.insertItem(0, cur)
+    cb.setCurrentText(cur if cur else (ports[0] if ports else ""))
+    return cb
 
 
 def _section(title):
@@ -161,7 +180,7 @@ class SettingsDialog(QDialog):
             tr("Dùng chung 1 máy quét cho cả 2 bên (luân phiên Trái → Phải)"))
         self.chk_shared_scan.setChecked(bool(getattr(self.cfg, "shared_scanner", False)))
         form.addRow("", self.chk_shared_scan)
-        self.txt_shared_port = QLineEdit(getattr(self.cfg, "shared_scanner_port", "COM1"))
+        self.txt_shared_port = _com_combo(getattr(self.cfg, "shared_scanner_port", "COM1"))
         self.spn_shared_baud = QSpinBox(); self.spn_shared_baud.setRange(1200, 921600)
         self.spn_shared_baud.setValue(getattr(self.cfg, "shared_scanner_baud", 9600))
         form.addRow(tr("Cổng COM máy quét chung:"), self.txt_shared_port)
@@ -490,7 +509,7 @@ class SettingsDialog(QDialog):
     def _tab_side(self, key):
         side = getattr(self.cfg, key)
         w = QWidget(); form = QFormLayout(w)
-        port = QLineEdit(side.scanner_port)
+        port = _com_combo(side.scanner_port)
         baud = QSpinBox(); baud.setRange(1200, 921600); baud.setValue(side.scanner_baud)
         ccd = QComboBox(); ccd.addItems(["CCD1", "CCD2"])
         ccd.setCurrentText(side.ccd_prefix)
@@ -650,7 +669,7 @@ class SettingsDialog(QDialog):
         c.poll_interval_ms = self.spn_poll.value()
         c.trigger_delay_ms = self.spn_delay.value()
         c.shared_scanner = self.chk_shared_scan.isChecked()
-        c.shared_scanner_port = self.txt_shared_port.text().strip()
+        c.shared_scanner_port = self.txt_shared_port.currentText().strip()
         c.shared_scanner_baud = self.spn_shared_baud.value()
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
@@ -715,7 +734,7 @@ class SettingsDialog(QDialog):
         for key in ("left", "right"):
             ws = getattr(self, "_w_%s" % key)
             side = getattr(c, key)
-            side.scanner_port = ws["scanner_port"].text().strip()
+            side.scanner_port = ws["scanner_port"].currentText().strip()
             side.scanner_baud = ws["scanner_baud"].value()
             side.ccd_prefix = ws["ccd_prefix"].currentText()
             side.trig_4x = ws["trig_4x"].text().strip()

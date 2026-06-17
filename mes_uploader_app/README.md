@@ -66,9 +66,10 @@ python run.py
 
 #### Dùng chung 1 máy quét cho cả 2 bên (⚙ Setting > Chung)
 
-Tích **"Dùng chung 1 máy quét"** + nhập **cổng COM máy quét chung** (chỉ áp dụng ở
-chế độ **Thật**). Khi đó app **không mở 2 tay scan riêng** mà mở **1 tay scan duy
-nhất**, quét **luân phiên**:
+Tích **"Dùng chung 1 máy quét"** + **chọn cổng COM** máy quét chung (ô cổng COM là
+**danh sách tự dò** các cổng đang có trên máy — vẫn gõ tay được nếu chưa cắm; áp
+dụng ở chế độ **Thật**). Khi đó app **không mở 2 tay scan riêng** mà mở **1 tay
+scan duy nhất**, quét **luân phiên**:
 
 - Bắt đầu tới lượt **bên TRÁI** (panel trái **sáng lên** + băng "**ĐẾN LƯỢT QUÉT**").
 - Quét 1 mã → app kiểm tra SN (GET). **Hợp lệ (OK)** → **chuyển lượt sang bên PHẢI**

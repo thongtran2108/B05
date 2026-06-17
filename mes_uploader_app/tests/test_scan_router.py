@@ -41,6 +41,10 @@ def main():
     # start không hợp lệ -> mặc định trái
     assert ScanRouter("xxx").route() == "left"
 
+    # list_serial_ports: luôn trả về list (rỗng nếu chưa cài pyserial / không cổng)
+    from mes_uploader.hardware.scanner import list_serial_ports
+    assert isinstance(list_serial_ports(), list)
+
     print("TEST SCAN-ROUTER PASS ✔")
 
 
