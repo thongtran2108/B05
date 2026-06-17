@@ -156,6 +156,20 @@ class SettingsDialog(QDialog):
         self.cbo_mode.setCurrentIndex(i if i >= 0 else 0)
         form.addRow(tr("Chế độ:"), self.cbo_mode)
 
+        # --- Máy quét DÙNG CHUNG (1 tay scan cho cả 2 bên) ---
+        self.chk_shared_scan = QCheckBox(
+            tr("Dùng chung 1 máy quét cho cả 2 bên (luân phiên Trái → Phải)"))
+        self.chk_shared_scan.setChecked(bool(getattr(self.cfg, "shared_scanner", False)))
+        form.addRow("", self.chk_shared_scan)
+        self.txt_shared_port = QLineEdit(getattr(self.cfg, "shared_scanner_port", "COM1"))
+        self.spn_shared_baud = QSpinBox(); self.spn_shared_baud.setRange(1200, 921600)
+        self.spn_shared_baud.setValue(getattr(self.cfg, "shared_scanner_baud", 9600))
+        form.addRow(tr("Cổng COM máy quét chung:"), self.txt_shared_port)
+        form.addRow(tr("Baud máy quét chung:"), self.spn_shared_baud)
+        form.addRow(_help(tr("CHỈ áp dụng ở chế độ 'Thật'. Quét lần 1 → bên TRÁI; SN hợp "
+                             "lệ (check OK) thì chuyển lượt sang PHẢI, không hợp lệ (NG) "
+                             "thì quét lại bên đó. Bên đang tới lượt SÁNG lên trên màn hình.")))
+
         self.spn_poll = QSpinBox(); self.spn_poll.setRange(20, 5000)
         self.spn_poll.setValue(self.cfg.poll_interval_ms)
         self.spn_poll.setSuffix(" ms")
@@ -635,6 +649,9 @@ class SettingsDialog(QDialog):
         c.manual_sn = (mode == "manual_sn")
         c.poll_interval_ms = self.spn_poll.value()
         c.trigger_delay_ms = self.spn_delay.value()
+        c.shared_scanner = self.chk_shared_scan.isChecked()
+        c.shared_scanner_port = self.txt_shared_port.text().strip()
+        c.shared_scanner_baud = self.spn_shared_baud.value()
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
         c.excel.enabled = self.chk_excel.isChecked()

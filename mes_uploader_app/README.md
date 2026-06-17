@@ -63,6 +63,19 @@ python run.py
 
 > Chế độ **PLC thật + nhập SN tay** dùng để **test với PLC thật mà chưa cần tay
 > scan**: gõ SN vào ô rồi bấm **Quét**, còn trigger/done vẫn chạy bằng PLC thật.
+
+#### Dùng chung 1 máy quét cho cả 2 bên (⚙ Setting > Chung)
+
+Tích **"Dùng chung 1 máy quét"** + nhập **cổng COM máy quét chung** (chỉ áp dụng ở
+chế độ **Thật**). Khi đó app **không mở 2 tay scan riêng** mà mở **1 tay scan duy
+nhất**, quét **luân phiên**:
+
+- Bắt đầu tới lượt **bên TRÁI** (panel trái **sáng lên** + băng "**ĐẾN LƯỢT QUÉT**").
+- Quét 1 mã → app kiểm tra SN (GET). **Hợp lệ (OK)** → **chuyển lượt sang bên PHẢI**
+  (bên trái tự chạy đo bằng PLC, song song). **Không hợp lệ (NG)** → **giữ lượt**,
+  quét lại bên đó.
+- Cứ thế luân phiên Trái → Phải → Trái… Bên đang tới lượt luôn được làm sáng để
+  biết quét bên nào. (Phải bấm **Bắt đầu** ở cả 2 bên.)
 > (Tương ứng `config.json`: `simulation` + `manual_sn`.)
 
 ### Thử nhanh ở chế độ giả lập

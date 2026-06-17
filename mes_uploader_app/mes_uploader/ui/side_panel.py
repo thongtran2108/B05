@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Panel cho 1 bên (Trái / Phải). Mỗi panel có 1 SideWorker + 1 tay scan riêng.
+"""Panel cho 1 bên (Trái / Phải). Mỗi panel có 1 SideWorker + 1 tay scan riêng
+(trừ chế độ '1 máy quét chung': cửa sổ chính mở 1 tay scan, định tuyến theo lượt).
 
 Bố cục dạng "card": chọn mã liệu/loại đầu → card SN → tiến độ → card kết quả
 → nút điều khiển → khu giả lập → BẢNG DỮ LIỆU (SN ↔ giá trị) + NHẬT KÝ.
@@ -105,6 +106,11 @@ class _EventBridge(QObject):
 
 
 class SidePanel(QGroupBox):
+    # Phát cho cửa sổ chính để điều phối MÁY QUÉT DÙNG CHUNG.
+    started = Signal()                   # đã bấm "Bắt đầu" (worker chạy)
+    stopped = Signal()                   # đã "Dừng" / dừng worker
+    scan_result = Signal(str, bool)      # (side_key, ok) sau khi check SN
+
     def __init__(self, side_key, cfg, parent=None):
         super().__init__(self._title_for(side_key), parent)
         self.setObjectName("panelLeft" if side_key == "left" else "panelRight")
@@ -150,6 +156,16 @@ class SidePanel(QGroupBox):
         root = QVBoxLayout(content)
         root.setContentsMargins(0, 0, 4, 0)   # chừa 4px bên phải cho thanh cuộn
         root.setSpacing(9)
+
+        # --- Băng "ĐẾN LƯỢT QUÉT" (chỉ hiện ở chế độ 1 máy quét chung) ---
+        self.lbl_turn = QLabel("● " + tr("ĐẾN LƯỢT QUÉT"))
+        self.lbl_turn.setObjectName("turnBanner")
+        self.lbl_turn.setAlignment(Qt.AlignCenter)
+        self.lbl_turn.setStyleSheet(
+            "QLabel#turnBanner{background:#1f9a5c;color:#ffffff;font-weight:800;"
+            "border-radius:8px;padding:6px 10px;letter-spacing:1px;}")
+        self.lbl_turn.setVisible(False)
+        root.addWidget(self.lbl_turn)
 
         # --- Chọn chuyên án + mã liệu + loại đầu ---
         sel = QHBoxLayout(); sel.setSpacing(14)
@@ -443,8 +459,11 @@ class SidePanel(QGroupBox):
         self.worker.start()
         self.worker.arm(material, head_type)
 
-        # Chỉ mở tay scan COM khi KHÔNG nhập SN tay (chế độ thật đầy đủ).
-        if not manual_sn_entry(self.cfg):
+        # Mở tay scan COM RIÊNG khi: KHÔNG nhập SN tay VÀ KHÔNG dùng máy quét
+        # chung. Ở chế độ 1 máy quét chung, cửa sổ chính mở DUY NHẤT 1 tay scan
+        # rồi định tuyến mã quét về đúng bên đang tới lượt (qua feed_scan).
+        if (not manual_sn_entry(self.cfg)
+                and not getattr(self.cfg, "shared_scanner", False)):
             self.scanner = SerialScanner(
                 side_cfg.scanner_port, side_cfg.scanner_baud,
                 on_scan=lambda sn: self.worker.submit_sn(sn),
@@ -455,6 +474,7 @@ class SidePanel(QGroupBox):
         self.btn_stop.setEnabled(True)
         self.cbo_project.setEnabled(False)
         self.cbo_material.setEnabled(False)
+        self.started.emit()
 
     def _on_stop(self):
         self.stop_worker()
@@ -470,6 +490,24 @@ class SidePanel(QGroupBox):
             self.scanner.stop(); self.scanner = None
         if self.worker:
             self.worker.disarm(); self.worker.stop(); self.worker = None
+        self.set_scan_active(False)
+        self.stopped.emit()
+
+    def feed_scan(self, sn):
+        """Nhận 1 mã từ MÁY QUÉT DÙNG CHUNG (cửa sổ chính định tuyến theo lượt)."""
+        if self.worker:
+            self.worker.submit_sn(sn)
+        else:
+            self._append_log(tr("Chưa bấm 'Bắt đầu' bên này — bỏ qua mã quét."))
+
+    def set_scan_active(self, active):
+        """Làm SÁNG panel khi tới lượt quét (chế độ 1 máy quét chung)."""
+        active = bool(active)
+        if getattr(self, "lbl_turn", None) is not None:
+            self.lbl_turn.setVisible(active)
+        self.setProperty("scanTurn", active)
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     # ------------------------------------------------------------------ #
     #  Lựa chọn / giả lập / bảng                                          #
@@ -526,6 +564,7 @@ class SidePanel(QGroupBox):
             self._set_result_style(None)
             self.lbl_result.setText("…")
             self._pending_mes = []        # bắt đầu nhóm hàng cho SN mới
+            self.scan_result.emit(self.side_key, True)    # SN hợp lệ -> chuyển lượt
         elif etype == "progress":
             done = data.get("done", 0); total = max(1, data.get("total", 1))
             self.progress.set_progress(done, total)
@@ -535,6 +574,7 @@ class SidePanel(QGroupBox):
             self._show_error(data)
         elif etype == "sn_rejected":
             self._show_rejected(data)
+            self.scan_result.emit(self.side_key, False)   # SN bị chặn -> quét lại bên này
         elif etype == "result":
             self._show_result(data.get("result", ""), data.get("ok", False))
             self._mark_uploaded(data.get("result", ""), data.get("ok", False))

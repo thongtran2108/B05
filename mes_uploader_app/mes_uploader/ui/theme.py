@@ -81,6 +81,10 @@ QGroupBox#panelLeft::title {{
     background-color: #16243d;
     border-color: #284064;
 }}
+/* Bên đang TỚI LƯỢT quét (chế độ 1 máy quét chung) -> viền sáng nổi bật */
+QGroupBox#panelLeft[scanTurn="true"], QGroupBox#panelRight[scanTurn="true"] {{
+    border: 2px solid {GREEN};
+}}
 
 QLabel {{ background: transparent; }}
 QLabel#caption {{

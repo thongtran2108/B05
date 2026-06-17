@@ -215,6 +215,15 @@ class AppConfig:
     # của lần trước. 0 = không chờ (giữ hành vi cũ).
     trigger_delay_ms: int = 0
 
+    # CHẾ ĐỘ 1 MÁY QUÉT DÙNG CHUNG cho cả 2 bên (chỉ ở chế độ 'Thật'):
+    #   shared_scanner = True -> KHÔNG mở 2 tay scan riêng; mở DUY NHẤT 1 tay scan
+    #   ở cổng shared_scanner_port. Quét luân phiên: lần 1 -> bên TRÁI, nếu SN
+    #   hợp lệ (check GET = OK) thì chuyển lượt sang bên PHẢI; SN không hợp lệ
+    #   (NG) thì quét lại bên đó. Bên đang tới lượt được làm SÁNG trên màn hình.
+    shared_scanner: bool = False
+    shared_scanner_port: str = "COM1"
+    shared_scanner_baud: int = 9600
+
     # Lưu nhật ký (quét mã, dữ liệu tải lên, phản hồi MES) ra file theo ngày.
     #   log_enabled = True  -> ghi file logs/scan_YYYYMMDD.log
     #   log_dir            -> thư mục log (để trống = thư mục 'logs' cạnh ứng dụng)

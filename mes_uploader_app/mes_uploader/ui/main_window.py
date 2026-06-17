@@ -10,7 +10,9 @@ from PySide6.QtWidgets import (
 
 from .. import audit
 from ..config import save_config, app_mode
+from ..core.scan_router import ScanRouter
 from ..hardware.plc_client import make_shared_plc
+from ..hardware.scanner import SerialScanner
 from ..i18n import tr, set_language, add_listener, remove_listener
 from .side_panel import SidePanel
 from .settings_dialog import SettingsDialog
@@ -43,6 +45,14 @@ class MainWindow(QMainWindow):
         panels.addWidget(self.left, 1)
         panels.addWidget(self.right, 1)
         root.addLayout(panels, 1)
+
+        # --- Điều phối MÁY QUÉT DÙNG CHUNG (1 tay scan cho cả 2 bên) ---
+        self._shared_scanner = None
+        self._scan_router = ScanRouter("left")
+        for panel in (self.left, self.right):
+            panel.started.connect(self._on_panel_started)
+            panel.stopped.connect(self._on_panel_stopped)
+            panel.scan_result.connect(self._on_scan_result)
 
         self.plc = None                  # kết nối PLC DÙNG CHUNG cho cả app
         self._rebuild_plc()              # tạo client + cấp cho 2 panel
@@ -172,6 +182,59 @@ class MainWindow(QMainWindow):
         else:
             self.btn_plc.setText(tr("Kết nối PLC"))
             self.btn_plc.setStyleSheet("color:%s; font-weight:700;" % AMBER)
+
+    # ------------------------------------------------------------------ #
+    #  MÁY QUÉT DÙNG CHUNG: 1 tay scan luân phiên Trái <-> Phải            #
+    # ------------------------------------------------------------------ #
+    def _shared_scanner_on(self):
+        """Bật chế độ 1 máy quét chung? (chỉ ở chế độ 'Thật' + đã tích cấu hình)."""
+        return (bool(getattr(self.cfg, "shared_scanner", False))
+                and app_mode(self.cfg) == "live")
+
+    def _on_panel_started(self):
+        if not self._shared_scanner_on():
+            return
+        if self._shared_scanner is None:     # bên đầu tiên bấm "Bắt đầu" -> mở 1 tay scan
+            self._scan_router = ScanRouter("left")   # mỗi phiên bắt đầu từ bên TRÁI
+            self._open_shared_scanner()
+        self._apply_scan_highlight()
+
+    def _on_panel_stopped(self):
+        if self.left.worker is None and self.right.worker is None:
+            self._close_shared_scanner()     # cả 2 bên đã dừng -> đóng tay scan chung
+
+    def _on_scan_result(self, side, ok):
+        if not self._shared_scanner_on() or self._shared_scanner is None:
+            return
+        self._scan_router.on_result(side, ok)   # OK -> chuyển lượt; NG -> giữ
+        self._apply_scan_highlight()
+
+    def _open_shared_scanner(self):
+        port = (getattr(self.cfg, "shared_scanner_port", "") or "").strip()
+        baud = getattr(self.cfg, "shared_scanner_baud", 9600)
+        self._shared_scanner = SerialScanner(
+            port, baud, on_scan=self._shared_route,
+            on_error=lambda msg: self.left._emit_event("log", text=msg))
+        if not self._shared_scanner.start():
+            self._shared_scanner = None      # mở cổng lỗi -> báo qua on_error, bỏ
+
+    def _close_shared_scanner(self):
+        if self._shared_scanner is not None:
+            self._shared_scanner.stop()
+            self._shared_scanner = None
+        self.left.set_scan_active(False)
+        self.right.set_scan_active(False)
+
+    def _shared_route(self, sn):
+        """Chạy trên luồng tay scan: đưa mã cho bên đang tới lượt (submit_sn an toàn luồng)."""
+        side = self._scan_router.route()
+        (self.left if side == "left" else self.right).feed_scan(sn)
+
+    def _apply_scan_highlight(self):
+        on = self._shared_scanner is not None
+        turn = self._scan_router.route()
+        self.left.set_scan_active(on and turn == "left")
+        self.right.set_scan_active(on and turn == "right")
 
     def _update_mode_label(self):
         mode = app_mode(self.cfg)
