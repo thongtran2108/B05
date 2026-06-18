@@ -227,6 +227,12 @@ class AppConfig:
     shared_scanner_port: str = "COM1"
     shared_scanner_baud: int = 9600
 
+    # CHẾ ĐỘ CHỈ CHẠY 1 BÊN: "both" = cả 2 bên (mặc định); "left" = chỉ chạy bên
+    # trái; "right" = chỉ chạy bên phải. Khi chỉ chạy 1 bên, thanh ghi 'hoàn thành
+    # scan' (sn_result_reg) được ghi cho CẢ 2 bên (cùng giá trị) để PLC không chờ
+    # bên còn lại; bên không chạy bị khóa trên giao diện.
+    run_side: str = "both"
+
     # Lưu nhật ký (quét mã, dữ liệu tải lên, phản hồi MES) ra file theo ngày.
     #   log_enabled = True  -> ghi file logs/scan_YYYYMMDD.log
     #   log_dir            -> thư mục log (để trống = thư mục 'logs' cạnh ứng dụng)

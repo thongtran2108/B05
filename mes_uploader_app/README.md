@@ -79,6 +79,16 @@ scan duy nhất**, quét **luân phiên**:
   biết quét bên nào. (Phải bấm **Bắt đầu** ở cả 2 bên.)
 > (Tương ứng `config.json`: `simulation` + `manual_sn`.)
 
+#### Chỉ chạy 1 bên (⚙ Setting > Chung > *Chạy bên*)
+
+Chọn **Cả hai bên** (mặc định), **Chỉ chạy bên TRÁI**, hoặc **Chỉ chạy bên PHẢI**.
+Khi chỉ chạy 1 bên:
+- Bên còn lại **bị KHÓA** trên giao diện (không Bắt đầu được).
+- Thanh ghi **"hoàn thành scan"** (*Setting > Bên trái/phải > Thanh ghi kết quả SN*,
+  vd `D4200`/`D4202`) được **ghi cho CẢ 2 bên** với **cùng giá trị** (bên đang
+  chạy OK → cả 2 = 1; NG → cả 2 = 2), để PLC **không phải chờ** tín hiệu của bên
+  không dùng. (Bên nào có cấu hình thanh ghi thì mới ghi.)
+
 ### Thử nhanh ở chế độ giả lập
 1. Bấm **Bắt đầu** ở 1 bên.
 2. Gõ SN vào ô *"Nhập SN giả lập"* → bấm **Quét (giả lập)**.

@@ -189,6 +189,18 @@ class SettingsDialog(QDialog):
                              "lệ (check OK) thì chuyển lượt sang PHẢI, không hợp lệ (NG) "
                              "thì quét lại bên đó. Bên đang tới lượt SÁNG lên trên màn hình.")))
 
+        # --- Chạy 1 bên ---
+        self.cbo_runside = QComboBox()
+        self.cbo_runside.addItem(tr("Cả hai bên"), "both")
+        self.cbo_runside.addItem(tr("Chỉ chạy bên TRÁI"), "left")
+        self.cbo_runside.addItem(tr("Chỉ chạy bên PHẢI"), "right")
+        _ri = self.cbo_runside.findData(getattr(self.cfg, "run_side", "both"))
+        self.cbo_runside.setCurrentIndex(_ri if _ri >= 0 else 0)
+        form.addRow(tr("Chạy bên:"), self.cbo_runside)
+        form.addRow(_help(tr("Chỉ chạy 1 bên thì bên kia bị KHÓA. Khi đó thanh ghi 'hoàn "
+                             "thành scan' (Bên trái/phải > Thanh ghi kết quả SN) được ghi "
+                             "cho CẢ 2 bên (cùng giá trị) để PLC không chờ bên còn lại.")))
+
         self.spn_poll = QSpinBox(); self.spn_poll.setRange(20, 5000)
         self.spn_poll.setValue(self.cfg.poll_interval_ms)
         self.spn_poll.setSuffix(" ms")
@@ -685,6 +697,7 @@ class SettingsDialog(QDialog):
         c.shared_scanner = self.chk_shared_scan.isChecked()
         c.shared_scanner_port = self.txt_shared_port.currentText().strip()
         c.shared_scanner_baud = self.spn_shared_baud.value()
+        c.run_side = self.cbo_runside.currentData() or "both"
         c.log_enabled = self.chk_log.isChecked()
         c.log_dir = self.txt_logdir.text().strip()
         c.excel.enabled = self.chk_excel.isChecked()

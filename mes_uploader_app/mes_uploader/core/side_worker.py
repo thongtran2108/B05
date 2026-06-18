@@ -476,31 +476,41 @@ class SideWorker:
             except Exception as ex:          # noqa: BLE001 (luồng nền: không được chết)
                 self._emit("log", text=tr("  [EXCEL] Lỗi lưu: %s") % ex)
 
-    def _write_sn_result(self, side_cfg, ok):
-        """Ghi kết quả kiểm tra SN về PLC: OK -> 1, NG -> 2.
+    def _other_side_key(self):
+        return "right" if self.side_key == "left" else "left"
 
-        Chỉ ghi khi bên này có cấu hình thanh ghi (side_cfg.sn_result_reg).
+    def _single_side_active(self):
+        """Đang ở chế độ CHỈ CHẠY 1 BÊN và bên này CHÍNH LÀ bên được chọn."""
+        return getattr(self.cfg, "run_side", "both") == self.side_key
+
+    def _write_sn_reg(self, value, what):
+        """Ghi thanh ghi 'hoàn thành scan' (sn_result_reg) = value cho bên này.
+
+        Chế độ CHỈ CHẠY 1 BÊN -> ghi LUÔN cho bên kia (cùng giá trị) để PLC không
+        chờ bên còn lại. Chỉ ghi bên nào có cấu hình thanh ghi.
         """
-        reg = (getattr(side_cfg, "sn_result_reg", "") or "").strip()
-        if not reg:
-            return
-        value = SN_RESULT_OK if ok else SN_RESULT_NG
-        if self._safe_write_word(reg, value):
-            self._emit("log", text=tr("  Ghi kết quả SN về PLC %s = %d") % (reg, value))
+        targets = [(getattr(self.cfg, self.side_key, None), False)]
+        if self._single_side_active():
+            targets.append((getattr(self.cfg, self._other_side_key(), None), True))
+        for side_cfg, other in targets:
+            reg = (getattr(side_cfg, "sn_result_reg", "") or "").strip()
+            if reg and self._safe_write_word(reg, value):
+                tag = (tr("%s [ghi hộ bên kia]") % what) if other else what
+                self._emit("log", text=tr("  Ghi %s về PLC %s = %d") % (tag, reg, value))
+
+    def _write_sn_result(self, side_cfg, ok):
+        """Ghi kết quả kiểm tra SN về PLC: OK -> 1, NG -> 2 (chế độ 1 bên: cả 2)."""
+        self._write_sn_reg(SN_RESULT_OK if ok else SN_RESULT_NG, tr("kết quả SN"))
 
     def _rearm_sn_signal(self, side_cfg, next_idx, total):
         """Ghi LẠI thanh ghi kết quả SN = OK (1) để PLC chạy ĐẦU KẾ TIẾP.
 
         SN nhiều đầu: PLC reset thanh ghi này (vd D4200/D4202) về 0 sau mỗi đầu
         nên app phải ghi lại 1 trước mỗi đầu tiếp theo (đầu cuối xong thì thôi).
-        Chỉ ghi khi bên này có cấu hình thanh ghi (side_cfg.sn_result_reg).
+        Chế độ CHỈ CHẠY 1 BÊN: ghi lại cho cả 2 bên.
         """
-        reg = (getattr(side_cfg, "sn_result_reg", "") or "").strip()
-        if not reg:
-            return
-        if self._safe_write_word(reg, SN_RESULT_OK):
-            self._emit("log", text=tr("  Ghi lại tín hiệu chạy đầu %d/%d (PLC %s = %d)")
-                       % (next_idx, total, reg, SN_RESULT_OK))
+        self._emit("log", text=tr("  Chuẩn bị đầu kế tiếp %d/%d") % (next_idx, total))
+        self._write_sn_reg(SN_RESULT_OK, tr("tín hiệu chạy"))
 
     def _handshake_done(self, trig, done):
         """Báo done về PLC rồi RESET tín hiệu trigger đã nhận về 0.

@@ -122,6 +122,7 @@ class SidePanel(QGroupBox):
         self._pending_mes = []          # các ô cột MES của SN đang chạy
         self._cur_state = ST_IDLE       # trạng thái cuối (để dựng lại khi đổi ngôn ngữ)
         self._plc_connected = None      # None = chưa biết, True/False = đã/ mất kết nối
+        self._side_active = True         # False = bị khóa (chế độ chỉ chạy 1 bên)
 
         self._bold = QFont(); self._bold.setBold(True)
         self._bridge = _EventBridge()
@@ -434,6 +435,9 @@ class SidePanel(QGroupBox):
     #  Bắt đầu / Dừng worker                                              #
     # ------------------------------------------------------------------ #
     def _on_start(self):
+        if not self._side_active:
+            self._append_log(tr("Bên này đang bị khóa (chế độ chỉ chạy 1 bên)."))
+            return
         material = self._current_material()
         head_type = self._current_type()
         if material is None:
@@ -508,6 +512,21 @@ class SidePanel(QGroupBox):
         self.setProperty("scanTurn", active)
         self.style().unpolish(self)
         self.style().polish(self)
+
+    def set_side_active(self, active):
+        """Khóa/mở bên này theo chế độ 'chạy 1 bên'. Bên bị khóa: không cho Bắt
+        đầu; nếu đang chạy thì dừng lại."""
+        active = bool(active)
+        self._side_active = active
+        if not active:
+            if self.worker:
+                self._on_stop()
+            self.btn_start.setEnabled(False)
+            self._cur_state = "LOCKED"
+            self.lbl_state.setText("%s: %s" % (tr("Trạng thái"),
+                                               tr("Khóa (chế độ chạy 1 bên)")))
+        else:
+            self.btn_start.setEnabled(self.worker is None)
 
     # ------------------------------------------------------------------ #
     #  Lựa chọn / giả lập / bảng                                          #

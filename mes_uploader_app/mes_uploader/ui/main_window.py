@@ -57,8 +57,15 @@ class MainWindow(QMainWindow):
         self.plc = None                  # kết nối PLC DÙNG CHUNG cho cả app
         self._rebuild_plc()              # tạo client + cấp cho 2 panel
         self._update_mode_label()
+        self._apply_run_side()           # chế độ chạy 1 bên -> khóa bên không dùng
         add_listener(self.retranslate)   # đổi ngôn ngữ -> cập nhật toàn bộ văn bản
         self._apply_initial_size()
+
+    def _apply_run_side(self):
+        """Khóa bên không được chọn theo cfg.run_side ('both'/'left'/'right')."""
+        rs = getattr(self.cfg, "run_side", "both")
+        self.left.set_side_active(rs in ("both", "left"))
+        self.right.set_side_active(rs in ("both", "right"))
 
     def _apply_initial_size(self):
         """Mở cửa sổ to nhưng không vượt quá vùng hiển thị của màn hình.
@@ -206,7 +213,8 @@ class MainWindow(QMainWindow):
     def _on_scan_result(self, side, ok):
         if not self._shared_scanner_on() or self._shared_scanner is None:
             return
-        self._scan_router.on_result(side, ok)   # OK -> chuyển lượt; NG -> giữ
+        if getattr(self.cfg, "run_side", "both") == "both":
+            self._scan_router.on_result(side, ok)   # OK -> chuyển lượt; NG -> giữ
         self._apply_scan_highlight()
 
     def _open_shared_scanner(self):
@@ -227,12 +235,14 @@ class MainWindow(QMainWindow):
 
     def _shared_route(self, sn):
         """Chạy trên luồng tay scan: đưa mã cho bên đang tới lượt (submit_sn an toàn luồng)."""
-        side = self._scan_router.route()
+        rs = getattr(self.cfg, "run_side", "both")
+        side = rs if rs in ("left", "right") else self._scan_router.route()
         (self.left if side == "left" else self.right).feed_scan(sn)
 
     def _apply_scan_highlight(self):
         on = self._shared_scanner is not None
-        turn = self._scan_router.route()
+        rs = getattr(self.cfg, "run_side", "both")
+        turn = rs if rs in ("left", "right") else self._scan_router.route()
         self.left.set_scan_active(on and turn == "left")
         self.right.set_scan_active(on and turn == "right")
 
@@ -271,6 +281,7 @@ class MainWindow(QMainWindow):
             self.right.apply_config(self.cfg)
             self._rebuild_plc()          # cấu hình PLC có thể đổi -> tạo lại kết nối
             self._update_mode_label()
+            self._apply_run_side()       # cập nhật khóa/mở theo chế độ chạy 1 bên
             QMessageBox.information(
                 self, tr("Setting"),
                 tr("Đã lưu cấu hình. Bấm 'Kết nối PLC' rồi 'Bắt đầu' ở mỗi bên."))
