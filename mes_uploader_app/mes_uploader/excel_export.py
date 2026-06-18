@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Tạo FILE MỚI (.xlsx) gom kết quả đo — mỗi lần đọc thêm 1 DÒNG, KÈM cột SN.
 
-KHÔNG sao chép cả file gốc. Mỗi lần đọc chỉ lấy DÒNG CUỐI của file đo gốc (đọc
-nhẹ, streaming) rồi APPEND vào file đích 1 dòng:
+KHÔNG sao chép cả file gốc. Mỗi lần đọc chỉ lấy DÒNG CUỐI của file đo gốc rồi
+APPEND vào file đích 1 dòng:
 
     SN, <nguyên dòng cuối của file gốc: Time, Judge, IspTime, Data01 … DataN>
 
@@ -95,7 +95,7 @@ def output_path(output_dir, source_file, when=None):
 
 
 # ---------------------------------------------------------------------- #
-#  Trích DÒNG CUỐI của file gốc + định dạng từng ô (đọc nhẹ, streaming)   #
+#  Trích DÒNG CUỐI của file gốc + định dạng từng ô                       #
 # ---------------------------------------------------------------------- #
 def _cell_style(cell, bold=None):
     """Rút gọn kiểu hiển thị 1 ô đủ để TÁI TẠO: giá trị + màu chữ + đậm/nghiêng
@@ -135,14 +135,15 @@ def _plain_cell(value, bold=False):
 
 
 def extract_source(source_bytes):
-    """Đọc NHẸ file gốc -> (header_cells, last_cells).
+    """Đọc file gốc -> (header_cells, last_cells).
 
-    XLSX (PK): mở read_only (streaming, KHÔNG nạp cả file vào RAM), chỉ giữ
-    dòng tiêu đề + DÒNG DỮ LIỆU CUỐI kèm định dạng từng ô. CSV thật: tách dòng,
-    lấy header + dòng cuối (không có định dạng). Trả về 2 list dict _cell_style.
+    XLSX (PK): lấy dòng tiêu đề + DÒNG DỮ LIỆU CUỐI kèm định dạng từng ô. KHÔNG
+    dùng read_only vì nhiều máy đo ghi thêm dòng nhưng không cập nhật <dimension>,
+    làm read_only bỏ sót dòng mới (đọc nhầm dòng cũ). CSV thật: tách dòng, lấy
+    header + dòng cuối (không có định dạng). Trả về 2 list dict _cell_style.
     """
     if source_bytes[:2] == b"PK":            # XLSX (kể cả đuôi .csv)
-        wb = openpyxl.load_workbook(io.BytesIO(source_bytes), read_only=True,
+        wb = openpyxl.load_workbook(io.BytesIO(source_bytes), read_only=False,
                                     data_only=True)
         try:
             ws = wb.active

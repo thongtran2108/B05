@@ -65,13 +65,18 @@ def _read_csv(path):
 
 
 def _read_xlsx(path):
-    """Đọc XLSX qua openpyxl. Truyền BytesIO để bỏ qua kiểm tra đuôi file."""
+    """Đọc XLSX qua openpyxl. Truyền BytesIO để bỏ qua kiểm tra đuôi file.
+
+    KHÔNG dùng read_only: nhiều máy đo ghi thêm dòng nhưng KHÔNG cập nhật thẻ
+    <dimension>, khiến read_only (tin theo dimension) BỎ SÓT dòng mới -> đọc
+    nhầm dòng cũ. read_only=False nạp đầy đủ mọi dòng trong sheetData.
+    """
     try:
         import openpyxl
     except ImportError as ex:
         raise IOError("Can cai 'openpyxl' de doc file Excel: %s" % ex)
     data = open(path, "rb").read()
-    wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    wb = openpyxl.load_workbook(io.BytesIO(data), read_only=False, data_only=True)
     try:
         ws = wb.active
         rows = []
