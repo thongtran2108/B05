@@ -89,10 +89,28 @@ def main():
     p = PathConfig(base_dir=root)                               # mặc định xlsx_only=True
     r = data_reader.get_latest_for_side(p, left, "8X", require_today=False)
     assert r["values"] == [222.0] and r["judge"] == "OK", r     # = .xlsx, KHÔNG phải .csv
-    p.xlsx_only = False                                         # cho phép .csv -> lấy mới nhất
+    p.xlsx_only = False                                        # cho phép .csv -> lấy mới nhất
     r2 = data_reader.get_latest_for_side(p, left, "8X", require_today=False)
     assert r2["values"] == [111.0], r2                          # = .csv (mới hơn)
     print("  xlsx_only=True -> .xlsx(222) | False -> .csv(111)  ✔")
+
+    # Ưu tiên .xlsx, thiếu thì .csv: thư mục CHỈ có .csv
+    print("\n== xlsx_fallback_csv: thiếu .xlsx -> lùi về .csv ==")
+    root2 = tempfile.mkdtemp(prefix="xlsxfb_")
+    d2 = os.path.join(root2, "8X", "data", day)
+    os.makedirs(d2, exist_ok=True)
+    with open(os.path.join(d2, "CCD1_NearStack.csv"), "w", encoding="utf-8") as f:
+        f.write("Time,Judge,IspTime,Data01\nt,OK,1,333.0\n")
+    pf = PathConfig(base_dir=root2)                             # xlsx_only=True, no fallback
+    try:
+        data_reader.get_latest_for_side(pf, left, "8X", require_today=False)
+        assert False, "chỉ .xlsx mà không có -> phải báo lỗi"
+    except data_reader.DataNotAvailableError:
+        pass
+    pf.xlsx_fallback_csv = True                                 # bật lùi về .csv
+    r3 = data_reader.get_latest_for_side(pf, left, "8X", require_today=False)
+    assert r3["values"] == [333.0], r3                          # đọc được .csv
+    print("  thiếu .xlsx: no-fallback -> lỗi | fallback -> .csv(333)  ✔")
 
     print("\nTAT CA TEST PASS ✔")
 

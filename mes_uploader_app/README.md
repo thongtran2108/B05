@@ -126,9 +126,14 @@ Mỗi file có cột: `Time, Judge, IspTime, Data01 … DataNN`
   cùng** (mới nhất). Máy đo ghi thêm 1 dòng cho mỗi đầu nên 2 đầu của 1 SN đọc
   được 2 dòng khác nhau.
 
-> **CHỈ đọc file `.xlsx`** (`paths.xlsx_only`, mặc định bật): trong 1 thư mục
-> ngày thường có cả `CCD1_NearStack.csv` lẫn `CCD1_NearStack.xlsx` — phần mềm
-> chỉ lấy `.xlsx` (giá trị đầy đủ độ chính xác), bỏ qua `.csv`.
+> **Chọn định dạng đọc** (⚙ Setting > Chung > *Đọc file đo*): thư mục ngày thường
+> có cả `CCD1_NearStack.csv` lẫn `.xlsx`. 3 lựa chọn:
+> - **Chỉ đọc `.xlsx`** (mặc định): chỉ lấy `.xlsx` (giá trị đầy đủ độ chính xác,
+>   giữ màu); thiếu `.xlsx` thì báo lỗi.
+> - **Ưu tiên `.xlsx`, thiếu thì `.csv`**: dùng `.xlsx`, nếu không có thì tự đọc
+>   `.csv` (lưới an toàn).
+> - **Đọc cả `.csv`/`.xlsx`**: lấy file mới nhất bất kể đuôi (`.csv` nhẹ/chắc
+>   nhưng giá trị bị làm tròn).
 
 ### Dữ liệu cập nhật theo ngày — báo lỗi khi thiếu
 

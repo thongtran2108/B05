@@ -222,6 +222,20 @@ class SettingsDialog(QDialog):
         form.addRow(tr("Mẫu tên file Phải:"), self.txt_rglob)
         form.addRow(_help(tr("Đường dẫn = <gốc>/<con 4X|8X|16X>/<YYYYMMDD>/CCD1*|CCD2*")))
 
+        self.cbo_readmode = QComboBox()
+        self.cbo_readmode.addItem(tr("Chỉ đọc .xlsx (bỏ .csv)"), "xlsx")
+        self.cbo_readmode.addItem(tr("Ưu tiên .xlsx, thiếu thì đọc .csv"), "xlsx_csv")
+        self.cbo_readmode.addItem(tr("Đọc cả .csv/.xlsx (lấy file mới nhất)"), "any")
+        _xo = getattr(self.cfg.paths, "xlsx_only", True)
+        _fb = getattr(self.cfg.paths, "xlsx_fallback_csv", False)
+        _rm = "xlsx_csv" if (_xo and _fb) else ("xlsx" if _xo else "any")
+        _i = self.cbo_readmode.findData(_rm)
+        self.cbo_readmode.setCurrentIndex(_i if _i >= 0 else 0)
+        form.addRow(tr("Đọc file đo:"), self.cbo_readmode)
+        form.addRow(_help(tr(".xlsx: giá trị đầy đủ độ chính xác + giữ màu. .csv: nhẹ/chắc "
+                             "nhưng giá trị bị làm tròn. 'Ưu tiên .xlsx' = dùng .xlsx, nếu "
+                             "thiếu thì tự đọc .csv.")))
+
         self.chk_today = QCheckBox(
             tr("Chỉ lấy dữ liệu của NGÀY HÔM NAY (báo lỗi nếu thiếu thư mục/file)"))
         self.chk_today.setChecked(self.cfg.paths.require_today)
@@ -686,6 +700,9 @@ class SettingsDialog(QDialog):
         c.paths.left_glob = self.txt_lglob.text().strip() or "CCD1*"
         c.paths.right_glob = self.txt_rglob.text().strip() or "CCD2*"
         c.paths.require_today = self.chk_today.isChecked()
+        _rm = self.cbo_readmode.currentData() or "xlsx"
+        c.paths.xlsx_only = _rm in ("xlsx", "xlsx_csv")
+        c.paths.xlsx_fallback_csv = (_rm == "xlsx_csv")
 
         c.plc.ip = self.txt_plc_ip.text().strip()
         c.plc.port = self.spn_plc_port.value()

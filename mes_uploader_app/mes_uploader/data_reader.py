@@ -99,12 +99,26 @@ def _keep_xlsx(paths):
     return [p for p in paths if p.lower().endswith(".xlsx")]
 
 
-def find_latest_file(type_dir, name_glob, xlsx_only=True):
+def _filter_by_mode(matches, xlsx_only, fallback_csv):
+    """Lọc danh sách file theo chế độ đọc:
+      xlsx_only=False               -> giữ nguyên (đọc cả .csv/.xlsx, lấy mới nhất);
+      xlsx_only=True + fallback_csv  -> ƯU TIÊN .xlsx, KHÔNG có .xlsx thì dùng .csv;
+      xlsx_only=True (không fallback)-> CHỈ .xlsx (không có -> rỗng).
+    """
+    if not xlsx_only:
+        return matches
+    xlsx = _keep_xlsx(matches)
+    if xlsx or not fallback_csv:
+        return xlsx
+    return matches
+
+
+def find_latest_file(type_dir, name_glob, xlsx_only=True, fallback_csv=False):
     """Tìm file mới nhất khớp 'name_glob' (vd 'CCD1*') trong type_dir.
 
     type_dir thường có cấu trúc <type_dir>/<YYYYMMDD>/CCD1*. Chọn thư mục
     ngày mới nhất trước, nếu không có thì tìm thẳng trong type_dir.
-    xlsx_only=True -> CHỈ xét file .xlsx (bỏ .csv).
+    xlsx_only / fallback_csv: xem _filter_by_mode.
     Trả về đường dẫn file, hoặc None nếu không tìm thấy.
     """
     if not os.path.isdir(type_dir):
@@ -122,8 +136,7 @@ def find_latest_file(type_dir, name_glob, xlsx_only=True):
     for d in search_dirs:
         matches = glob.glob(os.path.join(d, name_glob))
         matches = [m for m in matches if os.path.isfile(m)]
-        if xlsx_only:
-            matches = _keep_xlsx(matches)
+        matches = _filter_by_mode(matches, xlsx_only, fallback_csv)
         if matches:
             # file mới nhất theo thời gian sửa đổi
             return max(matches, key=os.path.getmtime)
@@ -232,8 +245,14 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
     type_dir = os.path.join(paths_cfg.base_dir, sub)
     name_glob = (paths_cfg.left_glob if side_cfg.ccd_prefix.upper() == "CCD1"
                  else paths_cfg.right_glob)
-    xlsx_only = getattr(paths_cfg, "xlsx_only", True)   # CHỈ đọc .xlsx (bỏ .csv)
-    want = "%s (.xlsx)" % name_glob if xlsx_only else name_glob
+    xlsx_only = getattr(paths_cfg, "xlsx_only", True)
+    fallback_csv = getattr(paths_cfg, "xlsx_fallback_csv", False)
+    if not xlsx_only:
+        want = name_glob
+    elif fallback_csv:
+        want = "%s (.xlsx, thiếu thì .csv)" % name_glob
+    else:
+        want = "%s (.xlsx)" % name_glob
 
     if require_today:
         day = today or today_str()
@@ -244,15 +263,15 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
                    "Thiếu thư mục: %s") % (day, day_dir))
         matches = [m for m in glob.glob(os.path.join(day_dir, name_glob))
                    if os.path.isfile(m)]
-        if xlsx_only:
-            matches = _keep_xlsx(matches)
+        matches = _filter_by_mode(matches, xlsx_only, fallback_csv)
         if not matches:
             raise DataNotAvailableError(
                 tr("Ngày hôm nay (%s) chưa có file '%s'.\n"
                    "Trong thư mục: %s") % (day, want, day_dir))
         path = max(matches, key=os.path.getmtime)
     else:
-        path = find_latest_file(type_dir, name_glob, xlsx_only=xlsx_only)
+        path = find_latest_file(type_dir, name_glob, xlsx_only=xlsx_only,
+                                fallback_csv=fallback_csv)
         if path is None:
             raise DataNotAvailableError(
                 tr("Không tìm thấy file '%s' trong %s") % (want, type_dir))

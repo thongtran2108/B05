@@ -142,6 +142,9 @@ class PathConfig:
     # CHỈ đọc file .xlsx (bỏ .csv): thư mục có cả <tên>.csv và <tên>.xlsx thì chỉ
     # lấy .xlsx (giá trị đầy đủ độ chính xác). False = đọc cả .csv (dùng cho test).
     xlsx_only: bool = True
+    # Khi xlsx_only=True: nếu KHÔNG có .xlsx thì LÙI về đọc .csv (ưu tiên .xlsx,
+    # dự phòng .csv). False = chỉ .xlsx, thiếu thì báo lỗi.
+    xlsx_fallback_csv: bool = False
 
 
 # ---------------------------------------------------------------------- #
