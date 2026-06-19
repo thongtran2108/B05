@@ -53,6 +53,7 @@ class MainWindow(QMainWindow):
             panel.started.connect(self._on_panel_started)
             panel.stopped.connect(self._on_panel_stopped)
             panel.scan_result.connect(self._on_scan_result)
+            panel.state_changed.connect(self._on_panel_state_changed)
 
         self.plc = None                  # kết nối PLC DÙNG CHUNG cho cả app
         self._rebuild_plc()              # tạo client + cấp cho 2 panel
@@ -217,6 +218,11 @@ class MainWindow(QMainWindow):
             self._scan_router.on_result(side, ok)   # OK -> chuyển lượt; NG -> giữ
         self._apply_scan_highlight()
 
+    def _on_panel_state_changed(self):
+        # 1 bên xong lưu trình (về chờ quét) / bắt đầu chạy -> cập nhật lại đèn lượt.
+        if self._shared_scanner is not None:
+            self._apply_scan_highlight()
+
     def _open_shared_scanner(self):
         port = (getattr(self.cfg, "shared_scanner_port", "") or "").strip()
         baud = getattr(self.cfg, "shared_scanner_baud", 9600)
@@ -240,11 +246,14 @@ class MainWindow(QMainWindow):
         (self.left if side == "left" else self.right).feed_scan(sn)
 
     def _apply_scan_highlight(self):
+        # Chỉ sáng đèn 'đến lượt' khi: máy quét chung đang mở, ĐÚNG lượt của bên
+        # đó, VÀ bên đó đang CHỜ QUÉT (chưa chạy lưu trình). Khi cả 2 đã quét và
+        # đang đo -> không bên nào sáng; bên nào xong lưu trình về chờ quét -> sáng.
         on = self._shared_scanner is not None
         rs = getattr(self.cfg, "run_side", "both")
         turn = rs if rs in ("left", "right") else self._scan_router.route()
-        self.left.set_scan_active(on and turn == "left")
-        self.right.set_scan_active(on and turn == "right")
+        self.left.set_scan_active(on and turn == "left" and self.left.is_waiting_scan())
+        self.right.set_scan_active(on and turn == "right" and self.right.is_waiting_scan())
 
     def _update_mode_label(self):
         mode = app_mode(self.cfg)

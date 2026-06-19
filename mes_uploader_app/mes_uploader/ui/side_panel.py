@@ -110,6 +110,7 @@ class SidePanel(QGroupBox):
     started = Signal()                   # đã bấm "Bắt đầu" (worker chạy)
     stopped = Signal()                   # đã "Dừng" / dừng worker
     scan_result = Signal(str, bool)      # (side_key, ok) sau khi check SN
+    state_changed = Signal()             # trạng thái bên này đổi (để cập nhật đèn lượt)
 
     def __init__(self, side_key, cfg, parent=None):
         super().__init__(self._title_for(side_key), parent)
@@ -504,6 +505,13 @@ class SidePanel(QGroupBox):
         else:
             self._append_log(tr("Chưa bấm 'Bắt đầu' bên này — bỏ qua mã quét."))
 
+    def is_waiting_scan(self):
+        """Bên này đang CHỜ QUÉT mã (đã Bắt đầu, chưa chạy lưu trình)?
+
+        Chỉ khi đang chờ quét mới sáng đèn 'đến lượt'. Đang chạy lưu trình (đo các
+        đầu) -> KHÔNG sáng; xong lưu trình về chờ quét -> sáng lại."""
+        return self._side_active and self._cur_state == ST_WAIT_SCAN
+
     def set_scan_active(self, active):
         """Làm SÁNG panel khi tới lượt quét (chế độ 1 máy quét chung)."""
         active = bool(active)
@@ -602,6 +610,7 @@ class SidePanel(QGroupBox):
         elif etype == "state":
             self._cur_state = data.get("state", "")
             self._render_state()
+            self.state_changed.emit()     # đổi trạng thái -> cập nhật đèn lượt quét
 
     # ------------------------------------------------------------------ #
     #  Bảng dữ liệu                                                       #
