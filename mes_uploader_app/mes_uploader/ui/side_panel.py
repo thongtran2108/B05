@@ -120,6 +120,7 @@ class SidePanel(QGroupBox):
         self.worker = None
         self.scanner = None
         self.shared_plc = None          # kết nối PLC DÙNG CHUNG (cửa sổ chính cấp)
+        self._sn_registry = None        # chặn 2 bên trùng mã (cửa sổ chính cấp)
         self._pending_mes = []          # các ô cột MES của SN đang chạy
         self._cur_state = ST_IDLE       # trạng thái cuối (để dựng lại khi đổi ngôn ngữ)
         self._plc_connected = None      # None = chưa biết, True/False = đã/ mất kết nối
@@ -347,6 +348,10 @@ class SidePanel(QGroupBox):
         """Nhận kết nối PLC DÙNG CHUNG từ cửa sổ chính."""
         self.shared_plc = plc
 
+    def set_sn_registry(self, registry):
+        """Nhận sổ theo dõi SN dùng chung (chặn 2 bên trùng mã) từ cửa sổ chính."""
+        self._sn_registry = registry
+
     def _project_items(self):
         """Danh sách (value, label) các chuyên án theo thứ tự xuất hiện.
 
@@ -460,7 +465,7 @@ class SidePanel(QGroupBox):
             return
         # Dùng kết nối PLC CHUNG -> worker KHÔNG đóng khi dừng (owns_plc=False).
         self.worker = SideWorker(self.side_key, self.cfg, plc, self._emit_event,
-                                 owns_plc=False)
+                                 owns_plc=False, sn_registry=self._sn_registry)
         self.worker.start()
         self.worker.arm(material, head_type)
 
@@ -592,11 +597,18 @@ class SidePanel(QGroupBox):
             self.lbl_result.setText("…")
             self._pending_mes = []        # bắt đầu nhóm hàng cho SN mới
             self.scan_result.emit(self.side_key, True)    # SN hợp lệ -> chuyển lượt
+        elif etype == "acquiring":
+            # đang chờ máy ghi dữ liệu mới -> báo rõ ở ô kết quả (đừng chạy SP mới)
+            self.lbl_result.setText("⏳ " + tr("ĐANG LẤY DỮ LIỆU…"))
+            self.lbl_result.setStyleSheet(
+                "background:#9c6b1f; color:#fff; border-radius:10px; font-weight:800;")
         elif etype == "progress":
             done = data.get("done", 0); total = max(1, data.get("total", 1))
             self.progress.set_progress(done, total)
         elif etype == "reading":
             self._add_reading_row(data)
+            self._set_result_style(None)      # đã lấy được -> bỏ chỉ báo 'đang lấy'
+            self.lbl_result.setText("…")
         elif etype == "error":
             self._show_error(data)
         elif etype == "sn_rejected":

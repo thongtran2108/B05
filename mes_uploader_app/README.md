@@ -89,6 +89,13 @@ Khi chỉ chạy 1 bên:
   chạy OK → cả 2 = 1; NG → cả 2 = 2), để PLC **không phải chờ** tín hiệu của bên
   không dùng. (Bên nào có cấu hình thanh ghi thì mới ghi.)
 
+#### Chặn 2 bên trùng mã (tự động)
+
+Khi chạy **cả 2 bên**: nếu **bên này đang chạy** một SN, **bên kia quét ĐÚNG mã
+đó** sẽ **bị chặn** (hiện "SN BỊ CHẶN", ghi NG về PLC), chờ quét mã khác — **2 bên
+phải khác mã nhau**. Mã được "giải phóng" khi bên đang chạy **hoàn tất / hủy /
+dừng** (lúc đó bên kia mới quét lại được mã đó nếu cần).
+
 ### Thử nhanh ở chế độ giả lập
 1. Bấm **Bắt đầu** ở 1 bên.
 2. Gõ SN vào ô *"Nhập SN giả lập"* → bấm **Quét (giả lập)**.
@@ -285,9 +292,13 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > tín hiệu PLC, worker **chờ TỐI ĐA** khoảng này cho tới khi file đo có **DÒNG
 > MỚI** (khác dòng đã đọc lần trước) rồi mới đọc. Máy đo thường **ghi file trễ hơn
 > tín hiệu**, nếu đọc ngay sẽ **lấy nhầm dòng cũ ('trước 1 cái')**. Worker **đọc
-> NGAY** khi dòng mới xuất hiện (không phải chờ đủ khoảng); **hết chờ** mà chưa có
-> dòng mới thì **dùng dòng hiện có** (không treo dây chuyền). `0` = đọc ngay. Chờ
-> kiểu **ngắt được** (dừng app thì thoát ngay).
+> NGAY** khi dòng mới xuất hiện (không phải chờ đủ khoảng).
+> - Trong lúc chờ, ô **OK/NG** hiện **"⏳ ĐANG LẤY DỮ LIỆU…"** (đừng chạy sản phẩm
+>   mới cho tới khi lấy xong).
+> - **Hết thời gian chờ mà CHƯA có dòng mới → HỦY lần đo + cảnh báo** ("LỖI DỮ
+>   LIỆU"), **KHÔNG dùng dữ liệu cũ** (đặt thời gian chờ đủ lớn để máy kịp ghi).
+> - `0` = đọc ngay 'dòng hiện có', không chờ. Chờ kiểu **ngắt được** (dừng app thì
+>   thoát ngay).
 
 > **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC → **chờ
 > `trigger_delay_ms`** → đọc số liệu/ảnh) × số đầu → POST. Trong suốt quá trình

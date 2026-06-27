@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from .. import audit
 from ..config import save_config, app_mode
 from ..core.scan_router import ScanRouter
+from ..core.sn_registry import ActiveSnRegistry
 from ..hardware.plc_client import make_shared_plc
 from ..hardware.scanner import SerialScanner
 from ..i18n import tr, set_language, add_listener, remove_listener
@@ -45,6 +46,11 @@ class MainWindow(QMainWindow):
         panels.addWidget(self.left, 1)
         panels.addWidget(self.right, 1)
         root.addLayout(panels, 1)
+
+        # --- Sổ theo dõi SN: chặn 2 bên trùng mã (2 bên phải khác mã) ---
+        self._sn_registry = ActiveSnRegistry()
+        self.left.set_sn_registry(self._sn_registry)
+        self.right.set_sn_registry(self._sn_registry)
 
         # --- Điều phối MÁY QUÉT DÙNG CHUNG (1 tay scan cho cả 2 bên) ---
         self._shared_scanner = None

@@ -47,12 +47,14 @@ SN_RESULT_NG = 2
 
 
 class SideWorker:
-    def __init__(self, side_key, cfg, plc_client, on_event, owns_plc=True):
+    def __init__(self, side_key, cfg, plc_client, on_event, owns_plc=True,
+                 sn_registry=None):
         self.side_key = side_key            # 'left' | 'right'
         self.cfg = cfg
         self.plc = plc_client
         self.on_event = on_event            # callable(event_type, **data)
         self._owns_plc = owns_plc           # False = kết nối PLC DÙNG CHUNG (không tự đóng)
+        self._sn_registry = sn_registry     # chặn 2 bên trùng mã (None = không kiểm)
         # Nhãn bên cho file log (CCD1 = trái, CCD2 = phải).
         self._audit_side = getattr(getattr(cfg, side_key, None),
                                    "ccd_prefix", side_key) or side_key
@@ -89,6 +91,7 @@ class SideWorker:
 
     def stop(self):
         self._stop.set()
+        self._release_sn()                   # dừng -> bỏ giữ mã (nếu đang chạy)
         if self._thread:
             self._thread.join(timeout=2.0)
         if self._img_thread:
@@ -130,6 +133,7 @@ class SideWorker:
         self._emit("status", text=tr("Đã bật. Chờ quét mã (loại %s).") % head_type)
 
     def disarm(self):
+        self._release_sn()                   # bỏ bật -> bỏ giữ mã (nếu đang chạy)
         with self._lock:
             self._armed = False
             self._state = ST_IDLE
@@ -231,6 +235,16 @@ class SideWorker:
                        % (mat_name, head_type, sn))
             return
 
+        # --- Chặn 2 bên TRÙNG mã: bên kia đang chạy đúng mã này -> không nhận ---
+        if (self._sn_registry is not None
+                and self._sn_registry.taken_by_other(self.side_key, sn)):
+            self._emit("log", text=tr("  [CHẶN] Mã %s đang chạy ở BÊN KIA — 2 bên phải khác mã.") % sn)
+            self._write_sn_result(side_cfg, False)     # ghi NG về PLC
+            self._emit("sn_rejected", sn=sn,
+                       message=tr("Bên kia đang chạy mã này (2 bên phải khác mã)"))
+            self._emit("status", text=tr("SN %s bị chặn: trùng mã bên kia.") % sn)
+            return
+
         # --- Bước 2b: kiểm tra SN bằng GET trước khi cho chạy (theo API loại đầu) ---
         sn_ok = self._check_sn(sn, head_type)
         # ghi kết quả kiểm tra SN về PLC: OK = 1, NG = 2 (nếu có cấu hình thanh ghi)
@@ -244,6 +258,8 @@ class SideWorker:
             self._runs = 0
             self._total = total
             self._state = ST_RUNNING
+        if self._sn_registry is not None:    # đánh dấu bên này đang chạy mã này
+            self._sn_registry.acquire(self.side_key, sn)
         # 'Mốc' đầu SN = dòng cuối hiện có; mỗi đầu sẽ chờ DÒNG MỚI khác mốc này
         # (đầu #1 chờ measurement đầu tiên, đầu #2 chờ dòng kế tiếp...).
         self._last_row_key = self._current_last_key(side_cfg, head_type)
@@ -301,9 +317,12 @@ class SideWorker:
 
         Máy đo thường ghi file TRỄ hơn tín hiệu PLC, nếu đọc ngay sẽ lấy nhầm dòng
         cũ ('trước 1 cái'). Vì vậy poll cho tới khi dòng cuối KHÁC mốc trước, tối
-        đa 'trigger_delay_ms' (NGẮT ĐƯỢC). Hết chờ mà chưa có dòng mới -> dùng
-        dòng hiện có (cảnh báo, không treo dây chuyền). Ném lỗi nếu hết chờ vẫn
-        không đọc được. Trả None nếu đang DỪNG worker.
+        đa 'trigger_delay_ms' (NGẮT ĐƯỢC); trong lúc chờ phát sự kiện 'acquiring'
+        để giao diện báo ĐANG LẤY DỮ LIỆU.
+        - Có cấu hình chờ (>0) mà QUÁ THỜI GIAN chưa có dòng mới -> NÉM lỗi để HỦY
+          (KHÔNG dùng dữ liệu cũ; cảnh báo lên giao diện).
+        - Không cấu hình chờ (=0) -> đọc 'dòng mới nhất hiện có' (hành vi cũ).
+        Trả None nếu đang DỪNG worker.
         """
         max_ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
         deadline = time.monotonic() + max_ms / 1000.0
@@ -327,13 +346,18 @@ class SideWorker:
             if time.monotonic() >= deadline:
                 break
             if not announced and max_ms > 0:
-                self._emit("log", text=tr("  Chờ DÒNG MỚI (tối đa %d ms)…") % max_ms)
+                # Báo giao diện 'ĐANG LẤY DỮ LIỆU' (ô OK/NG) trong lúc chờ.
+                self._emit("acquiring", sn=self._sn)
+                self._emit("log", text=tr("  Đang chờ DỮ LIỆU MỚI (tối đa %d ms)…") % max_ms)
                 announced = True
             self._stop.wait(0.1)
-        if last_reading is not None:         # hết chờ -> dùng dòng hiện có
-            if max_ms > 0:
-                self._emit("log", text=tr("  [CẢNH BÁO] Hết %d ms chưa thấy dòng mới"
-                                          " — dùng dòng hiện có") % max_ms)
+        if max_ms > 0:
+            # Đã cấu hình chờ mà QUÁ THỜI GIAN chưa thấy DÒNG MỚI -> KHÔNG dùng dữ
+            # liệu cũ; báo lỗi để HỦY + cảnh báo (chỉ chạy sản phẩm mới khi đã lấy
+            # được dữ liệu mới).
+            raise data_reader.DataNotAvailableError(
+                tr("Quá thời gian (%d ms) chưa thấy DỮ LIỆU MỚI — kiểm tra máy đo") % max_ms)
+        if last_reading is not None:         # không cấu hình chờ -> dùng dòng hiện có
             self._last_row_key = self._row_key(last_reading)
             return last_reading
         raise last_err or data_reader.DataNotAvailableError(
@@ -409,6 +433,7 @@ class SideWorker:
         # nhả handshake để PLC tiếp tục
         self._handshake_done(trig, done)
 
+        self._release_sn()                   # bỏ giữ mã (bên kia có thể dùng lại)
         with self._lock:
             self._state = ST_WAIT_SCAN
             self._sn = ""
@@ -417,6 +442,11 @@ class SideWorker:
         self._emit("state", state=ST_WAIT_SCAN)
         self._emit("status", text=tr("LỖI thiếu dữ liệu — đã hủy SN %s. Chờ quét mã tiếp theo.")
                    % sn)
+
+    def _release_sn(self):
+        """Bỏ đánh dấu 'đang chạy mã' của bên này trong registry (nếu có)."""
+        if self._sn_registry is not None:
+            self._sn_registry.release(self.side_key)
 
     def _enqueue_image_upload(self, sn, head_type, ccd, judge, index):
         """Xếp yêu cầu tải ảnh (theo bên CCD) vào HÀNG ĐỢI cho 1 luồng nền.
@@ -603,6 +633,7 @@ class SideWorker:
                      (text or "").replace("\n", " ")[:500]))
         self._emit("result", sn=sn, result=result, ok=ok)
 
+        self._release_sn()                   # xong SN -> bỏ giữ mã
         with self._lock:
             self._state = ST_WAIT_SCAN
             self._sn = ""
