@@ -352,11 +352,14 @@ class SideWorker:
                 announced = True
             self._stop.wait(0.1)
         if max_ms > 0:
-            # Đã cấu hình chờ mà QUÁ THỜI GIAN chưa thấy DÒNG MỚI -> KHÔNG dùng dữ
-            # liệu cũ; báo lỗi để HỦY + cảnh báo (chỉ chạy sản phẩm mới khi đã lấy
-            # được dữ liệu mới).
-            raise data_reader.DataNotAvailableError(
-                tr("Quá thời gian (%d ms) chưa thấy DỮ LIỆU MỚI — kiểm tra máy đo") % max_ms)
+            # Đã cấu hình chờ mà QUÁ THỜI GIAN chưa lấy được dòng mới -> KHÔNG dùng
+            # dữ liệu cũ; báo lỗi để HỦY + cảnh báo (chỉ chạy SP mới khi lấy được).
+            if isinstance(last_err, PermissionError):     # file bị máy đo KHÓA (đang ghi)
+                msg = tr("Quá thời gian (%d ms): file đang bị KHÓA do máy đang ghi "
+                         "— tăng 'Chờ dòng mới' hoặc kiểm tra máy đo") % max_ms
+            else:
+                msg = tr("Quá thời gian (%d ms) chưa thấy DỮ LIỆU MỚI — kiểm tra máy đo") % max_ms
+            raise data_reader.DataNotAvailableError(msg)
         if last_reading is not None:         # không cấu hình chờ -> dùng dòng hiện có
             self._last_row_key = self._row_key(last_reading)
             return last_reading
