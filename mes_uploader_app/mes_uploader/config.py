@@ -213,11 +213,11 @@ class AppConfig:
     # simulation=False + manual_sn=True => chế độ "PLC thật + nhập SN tay".
     manual_sn: bool = False
     poll_interval_ms: int = 200      # chu kỳ đọc bit PLC
-    # Sau khi nhận tín hiệu PLC, CHỜ TỐI ĐA khoảng này cho tới khi xuất hiện DÒNG
-    # MỚI trong file đo (khác dòng đã đọc lần trước) rồi mới đọc — máy đo thường
-    # ghi file TRỄ hơn tín hiệu, nếu đọc ngay sẽ lấy nhầm dòng cũ ('trước 1 cái').
-    # Đọc NGAY khi dòng mới xuất hiện (không chờ đủ khoảng). Hết chờ mà chưa có
-    # dòng mới -> dùng dòng hiện có (không treo). 0 = đọc ngay, không chờ.
+    # Sau khi nhận tín hiệu PLC, CHỜ TỐI ĐA khoảng này để máy đo GHI XONG file rồi
+    # mới đọc. Cơ chế: theo dõi file tới khi ỔN ĐỊNH (mtime/size không đổi = đã ghi
+    # xong & đóng file) VÀ có DÒNG MỚI thì mới đọc — tránh đọc nhầm dòng cũ
+    # ('trước 1 cái') hoặc file đang ghi dở / bị khóa. QUÁ THỜI GIAN chưa lấy được
+    # -> HỦY + cảnh báo (KHÔNG dùng dữ liệu cũ). 0 = đọc ngay, không chờ.
     trigger_delay_ms: int = 0
 
     # CHẾ ĐỘ 1 MÁY QUÉT DÙNG CHUNG cho cả 2 bên (chỉ ở chế độ 'Thật'):

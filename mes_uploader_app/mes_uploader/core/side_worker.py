@@ -312,59 +312,81 @@ class SideWorker:
             return None
         return self._row_key(r)
 
-    def _read_new_reading(self, side_cfg, head_type):
-        """Đọc dòng đo, nhưng CHỜ tới khi có DÒNG MỚI (khác lần đọc trước).
+    def _file_stat(self, side_cfg, head_type):
+        """(mtime, size) của file đo hiện tại — để biết máy đã NGỪNG ghi (ổn định).
 
-        Máy đo thường ghi file TRỄ hơn tín hiệu PLC, nếu đọc ngay sẽ lấy nhầm dòng
-        cũ ('trước 1 cái'). Vì vậy poll cho tới khi dòng cuối KHÁC mốc trước, tối
-        đa 'trigger_delay_ms' (NGẮT ĐƯỢC); trong lúc chờ phát sự kiện 'acquiring'
-        để giao diện báo ĐANG LẤY DỮ LIỆU.
-        - Có cấu hình chờ (>0) mà QUÁ THỜI GIAN chưa có dòng mới -> NÉM lỗi để HỦY
-          (KHÔNG dùng dữ liệu cũ; cảnh báo lên giao diện).
-        - Không cấu hình chờ (=0) -> đọc 'dòng mới nhất hiện có' (hành vi cũ).
+        Trả None nếu chưa có file / lỗi. os.stat lấy được metadata CẢ khi file đang
+        bị khóa ghi, nên dùng để theo dõi file còn thay đổi hay đã ghi xong.
+        """
+        try:
+            path = data_reader.resolve_side_file(
+                self.cfg.paths, side_cfg, head_type,
+                require_today=self.cfg.paths.require_today)
+            st = os.stat(path)
+            return (st.st_mtime, st.st_size)
+        except Exception:                    # noqa: BLE001 (chưa có file)
+            return None
+
+    def _read_new_reading(self, side_cfg, head_type):
+        """Đọc dòng đo của bên này — ĐỢI MÁY GHI XONG FILE rồi mới đọc.
+
+        Máy đo ghi file TRỄ hơn tín hiệu PLC; đọc ngay dễ lấy nhầm dòng cũ hoặc
+        gặp file đang ghi dở / bị khóa. Vì vậy (khi có cấu hình chờ > 0):
+          - Theo dõi (mtime, size): CHỈ đọc khi file ĐÃ ỔN ĐỊNH (không đổi giữa 2
+            lần kiểm = máy đã ghi xong & đóng file).
+          - Đọc xong phải là DÒNG MỚI (khác mốc đầu SN / đầu trước) mới nhận.
+          - Trong lúc đợi phát 'acquiring' để giao diện báo ĐANG LẤY DỮ LIỆU.
+          - QUÁ THỜI GIAN chưa lấy được -> NÉM lỗi để HỦY (KHÔNG dùng dữ liệu cũ).
+        Không cấu hình chờ (=0) -> đọc NGAY 'dòng hiện có' (hành vi cũ).
         Trả None nếu đang DỪNG worker.
         """
         max_ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
+        if max_ms <= 0:                      # không chờ -> đọc ngay
+            reading = data_reader.get_latest_for_side(
+                self.cfg.paths, side_cfg, head_type,
+                require_today=self.cfg.paths.require_today)
+            self._last_row_key = self._row_key(reading)
+            return reading
+
         deadline = time.monotonic() + max_ms / 1000.0
-        last_reading = None
+        settle = 0.3                         # file phải đứng yên >= khoảng này = ghi xong
+        last_stat = None
+        read_stat = None                     # stat của lần đã ĐỌC (tránh đọc lại y nguyên)
         last_err = None
         announced = False
         while True:
             if self._stop.is_set():
                 return None
-            try:
-                reading = data_reader.get_latest_for_side(
-                    self.cfg.paths, side_cfg, head_type,
-                    require_today=self.cfg.paths.require_today)
-                last_err = None
-                if self._row_key(reading) != self._last_row_key:   # ĐÃ có dòng mới
-                    self._last_row_key = self._row_key(reading)
-                    return reading
-                last_reading = reading
-            except Exception as ex:          # noqa: BLE001 (chưa có file/ghi dở -> chờ tiếp)
-                last_err = ex
+            stat = self._file_stat(side_cfg, head_type)
+            # ỔN ĐỊNH (không đổi từ lần trước) VÀ có thay đổi kể từ lần đọc -> đọc
+            if stat is not None and stat == last_stat and stat != read_stat:
+                try:
+                    reading = data_reader.get_latest_for_side(
+                        self.cfg.paths, side_cfg, head_type,
+                        require_today=self.cfg.paths.require_today)
+                    last_err = None
+                    read_stat = stat
+                    if self._row_key(reading) != self._last_row_key:   # ĐÃ có dòng mới
+                        self._last_row_key = self._row_key(reading)
+                        return reading
+                except Exception as ex:      # noqa: BLE001 (bị khóa/đọc dở -> chờ tiếp)
+                    last_err = ex
+            last_stat = stat
             if time.monotonic() >= deadline:
                 break
-            if not announced and max_ms > 0:
-                # Báo giao diện 'ĐANG LẤY DỮ LIỆU' (ô OK/NG) trong lúc chờ.
+            if not announced:
                 self._emit("acquiring", sn=self._sn)
-                self._emit("log", text=tr("  Đang chờ DỮ LIỆU MỚI (tối đa %d ms)…") % max_ms)
+                self._emit("log", text=tr("  Đợi máy ghi xong DỮ LIỆU (tối đa %d ms)…") % max_ms)
                 announced = True
-            self._stop.wait(0.1)
-        if max_ms > 0:
-            # Đã cấu hình chờ mà QUÁ THỜI GIAN chưa lấy được dòng mới -> KHÔNG dùng
-            # dữ liệu cũ; báo lỗi để HỦY + cảnh báo (chỉ chạy SP mới khi lấy được).
-            if isinstance(last_err, PermissionError):     # file bị máy đo KHÓA (đang ghi)
-                msg = tr("Quá thời gian (%d ms): file đang bị KHÓA do máy đang ghi "
-                         "— tăng 'Chờ dòng mới' hoặc kiểm tra máy đo") % max_ms
-            else:
-                msg = tr("Quá thời gian (%d ms) chưa thấy DỮ LIỆU MỚI — kiểm tra máy đo") % max_ms
-            raise data_reader.DataNotAvailableError(msg)
-        if last_reading is not None:         # không cấu hình chờ -> dùng dòng hiện có
-            self._last_row_key = self._row_key(last_reading)
-            return last_reading
-        raise last_err or data_reader.DataNotAvailableError(
-            tr("Không đọc được dữ liệu"))
+            self._stop.wait(settle)
+        # Quá thời gian: KHÔNG dùng dữ liệu cũ -> báo lỗi để HỦY + cảnh báo.
+        if isinstance(last_err, PermissionError):
+            msg = tr("Quá thời gian (%d ms): file đang bị KHÓA do máy đang ghi "
+                     "— tăng 'Chờ dòng mới' hoặc kiểm tra máy đo") % max_ms
+        else:
+            msg = tr("Quá thời gian (%d ms) chưa lấy được DỮ LIỆU MỚI (máy ghi chậm/"
+                     "chưa ghi xong) — tăng 'Chờ dòng mới' hoặc kiểm tra máy đo") % max_ms
+        raise data_reader.DataNotAvailableError(msg)
 
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:

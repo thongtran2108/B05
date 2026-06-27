@@ -209,11 +209,11 @@ class SettingsDialog(QDialog):
         self.spn_delay = QSpinBox(); self.spn_delay.setRange(0, 60000)
         self.spn_delay.setValue(getattr(self.cfg, "trigger_delay_ms", 0))
         self.spn_delay.setSuffix(" ms")
-        form.addRow(tr("Chờ dòng mới (tối đa):"), self.spn_delay)
-        form.addRow(_help(tr("Sau khi nhận tín hiệu PLC, CHỜ TỐI ĐA khoảng này cho tới khi "
-                             "file đo có DÒNG MỚI rồi mới đọc (máy ghi trễ hơn tín hiệu -> "
-                             "đọc ngay sẽ lấy nhầm dòng cũ). Đọc NGAY khi có dòng mới; hết "
-                             "chờ thì dùng dòng hiện có. 0 = đọc ngay, không chờ.")))
+        form.addRow(tr("Chờ máy ghi xong (tối đa):"), self.spn_delay)
+        form.addRow(_help(tr("Sau khi nhận tín hiệu PLC, ĐỢI máy đo GHI XONG file (file "
+                             "ỔN ĐỊNH: mtime/size ngừng đổi) rồi mới đọc DÒNG MỚI — tránh "
+                             "đọc nhầm dòng cũ hoặc file đang ghi dở/bị khóa. Quá thời gian "
+                             "chưa lấy được -> HỦY + cảnh báo. 0 = đọc ngay, không chờ.")))
 
         # đường dẫn
         self.txt_base = QLineEdit(self.cfg.paths.base_dir)

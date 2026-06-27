@@ -222,19 +222,14 @@ def read_latest_measurement(path):
     }
 
 
-def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
-                        today=None):
-    """Gộp tìm file + đọc dòng mới nhất cho 1 bên + 1 loại đầu.
+def resolve_side_file(paths_cfg, side_cfg, head_type, require_today=True,
+                      today=None):
+    """Tìm ĐƯỜNG DẪN file đo mới nhất của 1 bên + 1 loại đầu (chưa đọc nội dung).
 
-    paths_cfg     : PathConfig
-    side_cfg      : SideConfig (lấy ccd_prefix -> chọn glob trái/phải)
-    head_type     : '4X', '8X' hoặc '16X'
-    require_today : True  -> CHỈ đọc thư mục ngày hôm nay; thiếu thì báo lỗi
-                            (không lấy nhầm dữ liệu của ngày cũ).
-                    False -> lấy file mới nhất ở thư mục ngày mới nhất (fallback).
-    today         : ghi đè ngày (YYYYMMDD) để kiểm thử; mặc định = hôm nay.
-
-    Ném DataNotAvailableError nếu không có dữ liệu hợp lệ cho ngày yêu cầu.
+    require_today=True  -> CHỈ thư mục ngày hôm nay; thiếu -> DataNotAvailableError.
+    require_today=False -> file mới nhất ở thư mục ngày mới nhất.
+    Lọc theo chế độ đọc (.xlsx / fallback .csv). Ném DataNotAvailableError nếu
+    không có file hợp lệ.
     """
     if head_type == "4X":
         sub = paths_cfg.sub_4x
@@ -268,12 +263,17 @@ def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
             raise DataNotAvailableError(
                 tr("Ngày hôm nay (%s) chưa có file '%s'.\n"
                    "Trong thư mục: %s") % (day, want, day_dir))
-        path = max(matches, key=os.path.getmtime)
-    else:
-        path = find_latest_file(type_dir, name_glob, xlsx_only=xlsx_only,
-                                fallback_csv=fallback_csv)
-        if path is None:
-            raise DataNotAvailableError(
-                tr("Không tìm thấy file '%s' trong %s") % (want, type_dir))
+        return max(matches, key=os.path.getmtime)
+    path = find_latest_file(type_dir, name_glob, xlsx_only=xlsx_only,
+                            fallback_csv=fallback_csv)
+    if path is None:
+        raise DataNotAvailableError(
+            tr("Không tìm thấy file '%s' trong %s") % (want, type_dir))
+    return path
 
+
+def get_latest_for_side(paths_cfg, side_cfg, head_type, require_today=True,
+                        today=None):
+    """Tìm file mới nhất của 1 bên + đọc DÒNG CUỐI. Xem resolve_side_file."""
+    path = resolve_side_file(paths_cfg, side_cfg, head_type, require_today, today)
     return read_latest_measurement(path)

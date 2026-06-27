@@ -288,17 +288,17 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > `CCD1`→`Left`, `CCD2`→`Right`** (vd `CCD1_NearStack.csv` → `Left_NearStack.xlsx`);
 > `SN` vẫn là **cột** bên trong. Ghi chạy ở **luồng nền**.
 
-> **Chờ dòng mới (tối đa):** `Setting > Chung` (`trigger_delay_ms`). Sau khi nhận
-> tín hiệu PLC, worker **chờ TỐI ĐA** khoảng này cho tới khi file đo có **DÒNG
-> MỚI** (khác dòng đã đọc lần trước) rồi mới đọc. Máy đo thường **ghi file trễ hơn
-> tín hiệu**, nếu đọc ngay sẽ **lấy nhầm dòng cũ ('trước 1 cái')**. Worker **đọc
-> NGAY** khi dòng mới xuất hiện (không phải chờ đủ khoảng).
-> - Trong lúc chờ, ô **OK/NG** hiện **"⏳ ĐANG LẤY DỮ LIỆU…"** (đừng chạy sản phẩm
+> **Chờ máy ghi xong (tối đa):** `Setting > Chung` (`trigger_delay_ms`). Sau khi
+> nhận tín hiệu PLC, worker **ĐỢI máy đo GHI XONG file** rồi mới đọc. Máy đo
+> thường **ghi file trễ hơn tín hiệu**, đọc ngay sẽ **lấy nhầm dòng cũ ('trước 1
+> cái')** hoặc gặp **file đang ghi dở / bị khóa**. Cơ chế:
+> - **Theo dõi file tới khi ỔN ĐỊNH** (`mtime`/`size` ngừng thay đổi = máy đã ghi
+>   xong & đóng file), VÀ phải có **DÒNG MỚI** thì mới đọc.
+> - Trong lúc đợi, ô **OK/NG** hiện **"⏳ ĐANG LẤY DỮ LIỆU…"** (đừng chạy sản phẩm
 >   mới cho tới khi lấy xong).
-> - **Hết thời gian chờ mà CHƯA có dòng mới → HỦY lần đo + cảnh báo** ("LỖI DỮ
->   LIỆU"), **KHÔNG dùng dữ liệu cũ** (đặt thời gian chờ đủ lớn để máy kịp ghi).
-> - `0` = đọc ngay 'dòng hiện có', không chờ. Chờ kiểu **ngắt được** (dừng app thì
->   thoát ngay).
+> - **Quá thời gian mà chưa lấy được → HỦY lần đo + cảnh báo** ("LỖI DỮ LIỆU"),
+>   **KHÔNG dùng dữ liệu cũ** (đặt đủ lớn để máy kịp ghi, vd 3000–5000 ms).
+> - `0` = đọc ngay 'dòng hiện có', không chờ. Chờ kiểu **ngắt được**.
 
 > **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC → **chờ
 > `trigger_delay_ms`** → đọc số liệu/ảnh) × số đầu → POST. Trong suốt quá trình
