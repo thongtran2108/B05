@@ -75,6 +75,7 @@ class SideWorker:
         self._readings = []
         self._runs = 0
         self._total = 0
+        self._last_row_key = None         # khóa dòng đo đã đọc gần nhất (chờ dòng mới)
 
     # ------------------------------------------------------------------ #
     #  Điều khiển từ giao diện (luồng GUI)                                #
@@ -243,6 +244,9 @@ class SideWorker:
             self._runs = 0
             self._total = total
             self._state = ST_RUNNING
+        # 'Mốc' đầu SN = dòng cuối hiện có; mỗi đầu sẽ chờ DÒNG MỚI khác mốc này
+        # (đầu #1 chờ measurement đầu tiên, đầu #2 chờ dòng kế tiếp...).
+        self._last_row_key = self._current_last_key(side_cfg, head_type)
         self._emit("state", state=ST_RUNNING)
         self._emit("sn", sn=sn)
         self._emit("progress", done=0, total=total)
@@ -276,17 +280,64 @@ class SideWorker:
         self._emit("status", text=tr("SN %s bị chặn: %s") % (sn, msg))
         return False
 
-    def _wait_data_ready(self):
-        """Chờ 'trigger_delay_ms' sau khi nhận tín hiệu, trước khi đọc dữ liệu/ảnh.
+    @staticmethod
+    def _row_key(reading):
+        """Khóa nhận dạng 1 dòng đo (để phân biệt 'dòng mới' với 'dòng cũ')."""
+        return tuple(reading.get("raw") or []) if reading else None
 
-        Chờ kiểu NGẮT ĐƯỢC: trả True nếu đang DỪNG worker (bên gọi nên bỏ qua run
-        này), False nếu chờ xong bình thường (hoặc không cấu hình chờ = 0).
+    def _current_last_key(self, side_cfg, head_type):
+        """Khóa của dòng CUỐI hiện có (None nếu chưa có/đọc lỗi). Dùng làm 'mốc'
+        đầu SN: mỗi đầu sẽ chờ đúng DÒNG MỚI của lần đo của nó."""
+        try:
+            r = data_reader.get_latest_for_side(
+                self.cfg.paths, side_cfg, head_type,
+                require_today=self.cfg.paths.require_today)
+        except Exception:                    # noqa: BLE001 (chưa có dữ liệu -> mốc None)
+            return None
+        return self._row_key(r)
+
+    def _read_new_reading(self, side_cfg, head_type):
+        """Đọc dòng đo, nhưng CHỜ tới khi có DÒNG MỚI (khác lần đọc trước).
+
+        Máy đo thường ghi file TRỄ hơn tín hiệu PLC, nếu đọc ngay sẽ lấy nhầm dòng
+        cũ ('trước 1 cái'). Vì vậy poll cho tới khi dòng cuối KHÁC mốc trước, tối
+        đa 'trigger_delay_ms' (NGẮT ĐƯỢC). Hết chờ mà chưa có dòng mới -> dùng
+        dòng hiện có (cảnh báo, không treo dây chuyền). Ném lỗi nếu hết chờ vẫn
+        không đọc được. Trả None nếu đang DỪNG worker.
         """
-        ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
-        if ms <= 0:
-            return False
-        self._emit("log", text=tr("  Chờ %d ms cho số liệu/ảnh sẵn sàng…") % ms)
-        return self._stop.wait(ms / 1000.0)
+        max_ms = max(0, int(getattr(self.cfg, "trigger_delay_ms", 0) or 0))
+        deadline = time.monotonic() + max_ms / 1000.0
+        last_reading = None
+        last_err = None
+        announced = False
+        while True:
+            if self._stop.is_set():
+                return None
+            try:
+                reading = data_reader.get_latest_for_side(
+                    self.cfg.paths, side_cfg, head_type,
+                    require_today=self.cfg.paths.require_today)
+                last_err = None
+                if self._row_key(reading) != self._last_row_key:   # ĐÃ có dòng mới
+                    self._last_row_key = self._row_key(reading)
+                    return reading
+                last_reading = reading
+            except Exception as ex:          # noqa: BLE001 (chưa có file/ghi dở -> chờ tiếp)
+                last_err = ex
+            if time.monotonic() >= deadline:
+                break
+            if not announced and max_ms > 0:
+                self._emit("log", text=tr("  Chờ DÒNG MỚI (tối đa %d ms)…") % max_ms)
+                announced = True
+            self._stop.wait(0.1)
+        if last_reading is not None:         # hết chờ -> dùng dòng hiện có
+            if max_ms > 0:
+                self._emit("log", text=tr("  [CẢNH BÁO] Hết %d ms chưa thấy dòng mới"
+                                          " — dùng dòng hiện có") % max_ms)
+            self._last_row_key = self._row_key(last_reading)
+            return last_reading
+        raise last_err or data_reader.DataNotAvailableError(
+            tr("Không đọc được dữ liệu"))
 
     def _handle_one_run(self, side_cfg, head_type, trig, done):
         with self._lock:
@@ -294,26 +345,21 @@ class SideWorker:
             total = self._total
         self._emit("log", text=tr("Nhận tín hiệu chạy — đầu %d/%d") % (idx, total))
 
-        # Chờ THÊM (nếu cấu hình) để máy đo kịp ghi xong file/ảnh mới nhất trước
-        # khi đọc — tránh lấy nhầm dữ liệu/ảnh của lần trước. Chờ kiểu NGẮT ĐƯỢC:
-        # nếu đang dừng worker thì bỏ qua run này.
-        if self._wait_data_ready():
-            return
-
-        # đọc dòng mới nhất của bên này (CHỈ ngày hôm nay nếu require_today)
+        # Đọc dòng đo của bên này, nhưng CHỜ tới khi có DÒNG MỚI (máy ghi file trễ
+        # hơn tín hiệu -> nếu đọc ngay sẽ lấy nhầm dòng cũ). NGẮT ĐƯỢC khi dừng.
         try:
-            reading = data_reader.get_latest_for_side(
-                self.cfg.paths, side_cfg, head_type,
-                require_today=self.cfg.paths.require_today)
-            self._emit("log", text=tr("  Đọc %s: judge=%s, %d giá trị")
-                       % (os.path.basename(reading["file"]),
-                          reading["judge"], len(reading["values"])))
+            reading = self._read_new_reading(side_cfg, head_type)
         except Exception as ex:              # noqa: BLE001
             # Thiếu dữ liệu ngày hôm nay / lỗi đọc -> BÁO LỖI và HỦY SN này
             # (không upload nhầm, không tính NG giả).
             self._abort_sn(trig, done, sn=self._sn, head_type=head_type,
                            index=idx, total=total, message=str(ex))
             return
+        if reading is None:                  # đang dừng worker -> bỏ run này
+            return
+        self._emit("log", text=tr("  Đọc %s: judge=%s, %d giá trị")
+                   % (os.path.basename(reading["file"]),
+                      reading["judge"], len(reading["values"])))
 
         with self._lock:
             self._readings.append(reading)

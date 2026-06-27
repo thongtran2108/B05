@@ -281,11 +281,13 @@ SN hợp lệ  ⇔  nội dung trả về BẰNG ĐÚNG `check_ok_value` (mặc 
 > `CCD1`→`Left`, `CCD2`→`Right`** (vd `CCD1_NearStack.csv` → `Left_NearStack.xlsx`);
 > `SN` vẫn là **cột** bên trong. Ghi chạy ở **luồng nền**.
 
-> **Chờ sau tín hiệu:** `Setting > Chung > "Chờ sau tín hiệu"` (`trigger_delay_ms`).
-> Sau khi nhận tín hiệu PLC (sườn lên), worker **chờ thêm** khoảng này rồi MỚI đọc
-> số liệu và lấy ảnh — để máy đo kịp ghi xong file/ảnh **mới nhất**, **tránh lấy
-> nhầm dữ liệu/ảnh cũ**. Mặc định `0` = không chờ. Chờ kiểu **ngắt được** (dừng
-> app thì thoát ngay, không treo).
+> **Chờ dòng mới (tối đa):** `Setting > Chung` (`trigger_delay_ms`). Sau khi nhận
+> tín hiệu PLC, worker **chờ TỐI ĐA** khoảng này cho tới khi file đo có **DÒNG
+> MỚI** (khác dòng đã đọc lần trước) rồi mới đọc. Máy đo thường **ghi file trễ hơn
+> tín hiệu**, nếu đọc ngay sẽ **lấy nhầm dòng cũ ('trước 1 cái')**. Worker **đọc
+> NGAY** khi dòng mới xuất hiện (không phải chờ đủ khoảng); **hết chờ** mà chưa có
+> dòng mới thì **dùng dòng hiện có** (không treo dây chuyền). `0` = đọc ngay. Chờ
+> kiểu **ngắt được** (dừng app thì thoát ngay).
 
 > **Lưu trình không đổi:** quét SN → kiểm tra GET → (nhận tín hiệu PLC → **chờ
 > `trigger_delay_ms`** → đọc số liệu/ảnh) × số đầu → POST. Trong suốt quá trình
