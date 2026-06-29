@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..config import AppConfig, MaterialConfig, app_mode
+from ..core import auth
 from ..hardware.scanner import list_serial_ports
 from ..i18n import tr, set_language, current_language, available_languages
 from ..material_import import parse_materials
@@ -76,6 +77,41 @@ def _scroll(inner):
     return sc
 
 
+class LoginDialog(QDialog):
+    """Đăng nhập trước khi mở Setting (tài khoản + mật khẩu)."""
+
+    def __init__(self, cfg, parent=None):
+        super().__init__(parent)
+        self.cfg = cfg
+        self.setWindowTitle(tr("Đăng nhập Setting"))
+        form = QFormLayout(self)
+        self.txt_user = QLineEdit(auth.current_user(cfg))
+        self.txt_pass = QLineEdit()
+        self.txt_pass.setEchoMode(QLineEdit.Password)
+        form.addRow(tr("Tài khoản:"), self.txt_user)
+        form.addRow(tr("Mật khẩu:"), self.txt_pass)
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self._try)
+        btns.rejected.connect(self.reject)
+        form.addRow(btns)
+        self.txt_pass.returnPressed.connect(self._try)
+        self.txt_pass.setFocus()
+
+    def _try(self):
+        if auth.check(self.cfg, self.txt_user.text(), self.txt_pass.text()):
+            self.accept()
+        else:
+            QMessageBox.warning(self, tr("Đăng nhập"),
+                                tr("Sai tài khoản hoặc mật khẩu."))
+            self.txt_pass.clear()
+            self.txt_pass.setFocus()
+
+
+def authenticate(cfg, parent=None):
+    """Hỏi đăng nhập; trả True nếu đúng (được phép mở Setting)."""
+    return LoginDialog(cfg, parent).exec() == QDialog.Accepted
+
+
 class SettingsDialog(QDialog):
     def __init__(self, cfg, parent=None):
         super().__init__(parent)
@@ -124,6 +160,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._tab_side("left"), tr("Bên trái"))
         self.tabs.addTab(self._tab_side("right"), tr("Bên phải"))
         self.tabs.addTab(self._tab_materials(), tr("Mã liệu"))
+        self.tabs.addTab(self._tab_account(), tr("Tài khoản"))
         if 0 <= cur < self.tabs.count():
             self.tabs.setCurrentIndex(cur)
         self.tabs.blockSignals(False)
@@ -683,6 +720,44 @@ class SettingsDialog(QDialog):
         if skipped:
             msg += tr("\nBỏ qua %d dòng không có tên mã.") % skipped
         QMessageBox.information(self, tr("Nhập mã liệu"), msg)
+
+    # ------------------------------------------------------------------ #
+    #  Tab Tài khoản (đổi mật khẩu mở Setting)                           #
+    # ------------------------------------------------------------------ #
+    def _tab_account(self):
+        w = QWidget(); form = QFormLayout(w)
+        form.addRow(_section(tr("Đổi mật khẩu mở Setting")))
+        form.addRow(_help(tr("Tài khoản mở Setting: %s. Đổi mật khẩu xong bấm 'OK' để lưu.")
+                          % auth.current_user(self.cfg)))
+        self.txt_pw_cur = QLineEdit(); self.txt_pw_cur.setEchoMode(QLineEdit.Password)
+        self.txt_pw_new = QLineEdit(); self.txt_pw_new.setEchoMode(QLineEdit.Password)
+        self.txt_pw_new2 = QLineEdit(); self.txt_pw_new2.setEchoMode(QLineEdit.Password)
+        form.addRow(tr("Mật khẩu hiện tại:"), self.txt_pw_cur)
+        form.addRow(tr("Mật khẩu mới:"), self.txt_pw_new)
+        form.addRow(tr("Nhập lại mật khẩu mới:"), self.txt_pw_new2)
+        btn = QPushButton(tr("Đổi mật khẩu"))
+        btn.clicked.connect(self._change_password)
+        form.addRow("", btn)
+        return _scroll(w)
+
+    def _change_password(self):
+        cur = self.txt_pw_cur.text()
+        new = self.txt_pw_new.text()
+        new2 = self.txt_pw_new2.text()
+        if not auth.verify_pass(self.cfg, cur):
+            QMessageBox.warning(self, tr("Đổi mật khẩu"), tr("Mật khẩu hiện tại không đúng."))
+            return
+        if not new:
+            QMessageBox.warning(self, tr("Đổi mật khẩu"), tr("Mật khẩu mới không được để trống."))
+            return
+        if new != new2:
+            QMessageBox.warning(self, tr("Đổi mật khẩu"),
+                                tr("Hai lần nhập mật khẩu mới không khớp."))
+            return
+        auth.set_password(self.cfg, new)     # ghi vào bản sao -> lưu khi bấm OK
+        self.txt_pw_cur.clear(); self.txt_pw_new.clear(); self.txt_pw_new2.clear()
+        QMessageBox.information(self, tr("Đổi mật khẩu"),
+                                tr("Đã đổi mật khẩu. Bấm 'OK' để lưu lại."))
 
     # ------------------------------------------------------------------ #
     #  Đọc widget -> cấu hình                                             #

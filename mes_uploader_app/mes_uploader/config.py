@@ -208,6 +208,11 @@ class ExcelConfig:
 @dataclass
 class AppConfig:
     language: str = "vi"             # ngôn ngữ giao diện: "vi" | "zh" | "en"
+    # Đăng nhập khi mở Setting. Mặc định: tài khoản 'TDH', mật khẩu '8888'.
+    # auth_pass_hash để trống = dùng mật khẩu mặc định; đổi trong Setting sẽ ghi
+    # mã băm (sha256) vào đây (không lưu mật khẩu dạng thô).
+    auth_user: str = "TDH"
+    auth_pass_hash: str = ""
     simulation: bool = True          # True = PLC giả lập (Mock), không cần phần cứng
     # True = nhập SN bằng tay (ô text + nút Quét) thay vì tay scan COM.
     # simulation=False + manual_sn=True => chế độ "PLC thật + nhập SN tay".

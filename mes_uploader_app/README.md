@@ -47,6 +47,12 @@ python run.py
 - Sửa cấu hình bằng nút **⚙ Setting** trên giao diện (lưu vào `config.json`).
 - Xem `config.example.json` để biết toàn bộ tham số.
 
+> **🔒 Đăng nhập Setting:** bấm **⚙ Setting** sẽ hỏi **tài khoản + mật khẩu**, nhập
+> đúng mới vào được. Mặc định **tài khoản `TDH` / mật khẩu `8888`**. Đổi mật khẩu
+> trong **Setting > Tài khoản** (nhập mật khẩu hiện tại + mật khẩu mới, bấm *Đổi
+> mật khẩu* rồi *OK* để lưu). Mật khẩu chỉ lưu dưới dạng **mã băm** trong
+> `config.json` (không lưu thô).
+
 > **Đổi ngôn ngữ:** vào **⚙ Setting > Chung > Ngôn ngữ** chọn **Tiếng Việt /
 > 中文 / English**. Toàn bộ giao diện (cửa sổ chính, 2 panel, hộp thoại Setting,
 > nhật ký/trạng thái) đổi **ngay lập tức** sang ngôn ngữ đã chọn; lựa chọn được

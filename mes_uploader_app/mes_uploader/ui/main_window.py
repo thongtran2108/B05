@@ -16,7 +16,7 @@ from ..hardware.plc_client import make_shared_plc
 from ..hardware.scanner import SerialScanner
 from ..i18n import tr, set_language, add_listener, remove_listener
 from .side_panel import SidePanel
-from .settings_dialog import SettingsDialog
+from .settings_dialog import SettingsDialog, authenticate
 from .theme import GREEN, AMBER
 
 
@@ -283,6 +283,8 @@ class MainWindow(QMainWindow):
         self.right.retranslate()
 
     def _open_settings(self):
+        if not authenticate(self.cfg, self):     # yêu cầu đăng nhập trước khi mở
+            return
         dlg = SettingsDialog(self.cfg, self)
         if dlg.exec():
             self.cfg = dlg.result_config()
