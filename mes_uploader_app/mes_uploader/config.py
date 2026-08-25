@@ -177,16 +177,20 @@ class ImageConfig:
 
 # ---------------------------------------------------------------------- #
 #  Lưu giá trị đo ra Excel (.xlsx) — kèm cột SN                           #
-#    Mỗi bên 1 file theo ngày, cùng định dạng file đo gốc nhưng THÊM SN:  #
+#    MỖI loại đầu (4X/8X/16X) lưu vào 1 THƯ MỤC RIÊNG do người dùng chọn  #
+#    (số cột Data mỗi loại khác nhau). Trong đó mỗi ngày 1 thư mục con,   #
+#    mỗi bên (CCD1/CCD2) 1 file, cùng định dạng file đo gốc nhưng THÊM SN:#
 #      SN, Time, Judge, IspTime, Data01, … DataN                         #
-#    File: <output_dir>/<YYYYMMDD>/<tên file đo gốc>.xlsx                 #
+#    File: <dir loại đầu>/<YYYYMMDD>/<tên file đo gốc>.xlsx               #
 # ---------------------------------------------------------------------- #
 @dataclass
 class ExcelConfig:
     # Mặc định TẮT (opt-in): bật trong Setting để bắt đầu ghi .xlsx ra đĩa.
     enabled: bool = False
-    # Thư mục lưu .xlsx (để trống = thư mục 'excel_data' cạnh ứng dụng).
-    output_dir: str = ""
+    # Thư mục lưu RIÊNG theo từng loại đầu (để trống loại nào = KHÔNG lưu loại đó).
+    dir_4x: str = ""
+    dir_8x: str = ""
+    dir_16x: str = ""
 
 
 # ---------------------------------------------------------------------- #
@@ -374,6 +378,15 @@ def head_image(images_cfg, head_type):
     if head_type == "8X":
         return images_cfg.img_8x
     return images_cfg.img_16x
+
+
+def head_excel_dir(excel_cfg, head_type):
+    """Thư mục lưu Excel theo loại đầu '4X' / '8X' / '16X' (trống = không lưu)."""
+    if head_type == "4X":
+        return excel_cfg.dir_4x
+    if head_type == "8X":
+        return excel_cfg.dir_8x
+    return excel_cfg.dir_16x
 
 
 def manual_sn_entry(cfg):
