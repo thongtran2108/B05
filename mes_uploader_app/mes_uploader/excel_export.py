@@ -4,9 +4,11 @@
 Định dạng giống file đo gốc nhưng THÊM cột SN ở đầu:
     SN, Time, Judge, IspTime, Data01, Data02, ... DataN
 
-- Mỗi bên (CCD1/CCD2) 1 file theo NGÀY, cùng tên với file đo gốc.
+- MỖI loại đầu (4X/8X/16X) lưu vào 1 THƯ MỤC RIÊNG do người dùng chọn (số cột
+  Data mỗi loại khác nhau nên không trộn chung). Trong thư mục đó, mỗi NGÀY một
+  thư mục con và mỗi BÊN (CCD1/CCD2) một file.
 - Mỗi lần đọc (1 đầu) = 1 dòng được THÊM vào cuối; header chỉ viết khi tạo file.
-- File: <output_dir>/<YYYYMMDD>/<tên file đo gốc>.xlsx
+- File: <thư mục loại đầu>/<YYYYMMDD>/<tên file đo gốc>.xlsx
 - An toàn nhiều luồng (lock) — 2 bên ghi 2 file khác nhau, cùng file thì nối tiếp.
 
 Module KHÔNG phụ thuộc Qt/PySide6 (để test headless và worker dùng được).
@@ -14,7 +16,6 @@ Module KHÔNG phụ thuộc Qt/PySide6 (để test headless và worker dùng đ�
 
 import datetime
 import os
-import sys
 import threading
 
 from .i18n import tr
@@ -30,26 +31,14 @@ _lock = threading.Lock()
 META_HEADERS = ["SN", "Time", "Judge", "IspTime"]
 
 
-def default_output_dir():
-    """Thư mục mặc định = 'excel_data' cạnh ứng dụng (exe hoặc thư mục run.py)."""
-    if getattr(sys, "frozen", False):        # bản đóng gói PyInstaller
-        base = os.path.dirname(sys.executable)
-    else:                                    # chạy mã nguồn: .../mes_uploader_app
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, "excel_data")
+def output_path(out_dir, source_file, when=None):
+    """Đường dẫn .xlsx đích: <out_dir>/<YYYYMMDD>/<tên file đo gốc>.xlsx.
 
-
-def resolve_output_dir(cfg):
-    """Thư mục lưu Excel từ cấu hình: cfg.excel.output_dir nếu có, ngược lại mặc định."""
-    d = (getattr(getattr(cfg, "excel", None), "output_dir", "") or "").strip()
-    return d or default_output_dir()
-
-
-def output_path(output_dir, source_file, when=None):
-    """Đường dẫn file .xlsx đích: <output_dir>/<YYYYMMDD>/<tên file gốc>.xlsx."""
+    out_dir = thư mục đã chọn cho loại đầu tương ứng; mỗi ngày 1 thư mục con.
+    """
     when = when or datetime.datetime.now()
     base = os.path.splitext(os.path.basename(source_file or "data"))[0] or "data"
-    return os.path.join(output_dir, when.strftime("%Y%m%d"), base + ".xlsx")
+    return os.path.join(out_dir, when.strftime("%Y%m%d"), base + ".xlsx")
 
 
 def append_reading(out_path, sn, reading):

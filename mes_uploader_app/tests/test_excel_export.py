@@ -65,7 +65,8 @@ def main():
     print("\n== worker -> file Excel có cột SN ==")
     base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "sample_data")
-    out_dir = os.path.join(root, "wk")
+    out_dir = os.path.join(root, "wk8x")
+    dir16 = os.path.join(root, "wk16x")          # đầu 16X -> phải KHÔNG có file
     cfg = AppConfig()
     cfg.simulation = True
     cfg.poll_interval_ms = 20
@@ -74,7 +75,8 @@ def main():
     cfg.materials = [MaterialConfig("ABC", heads_8x=2)]
     cfg.api.api_8x.url = "http://mes/8x/upload"
     cfg.excel.enabled = True
-    cfg.excel.output_dir = out_dir
+    cfg.excel.dir_8x = out_dir                    # mỗi loại đầu 1 thư mục riêng
+    cfg.excel.dir_16x = dir16
     mes_api.post_payload = lambda u, p, **k: (True, 200, "OK")
 
     w = SideWorker("left", cfg, MockPlcClient(), lambda et, **d: None)
@@ -98,12 +100,14 @@ def main():
     assert len(data_rows) == 2, "2 đầu -> 2 dòng, thực tế %d" % len(data_rows)
     assert all(r[0] == "SN-WK-7" for r in data_rows), data_rows
     print("  số dòng dữ liệu:", len(data_rows), "| SN:", data_rows[0][0])
+    # đầu 8X -> chỉ ghi vào thư mục 8X; thư mục 16X phải RỖNG
+    assert glob.glob(os.path.join(dir16, "**", "*.xlsx"), recursive=True) == []
 
     # 4) Tắt -> không tạo file
     print("\n== tắt Excel -> không tạo file ==")
     out2 = os.path.join(root, "off")
     cfg.excel.enabled = False
-    cfg.excel.output_dir = out2
+    cfg.excel.dir_8x = out2
     w = SideWorker("left", cfg, MockPlcClient(), lambda et, **d: None)
     w.start(); w.arm(cfg.materials[0], "8X"); time.sleep(0.1)
     w.submit_sn("SN-OFF"); time.sleep(0.2)
