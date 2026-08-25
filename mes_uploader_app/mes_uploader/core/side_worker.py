@@ -30,7 +30,8 @@ import threading
 import time
 
 from .. import audit, data_reader, excel_export, image_uploader, mes_api
-from ..config import side_addresses, head_count, head_api, head_image
+from ..config import (side_addresses, head_count, head_api, head_image,
+                      head_excel_dir)
 from ..hardware.mitsubishi_plc import is_word_device
 from ..hardware.plc_client import MockPlcClient
 from ..i18n import tr
@@ -317,7 +318,7 @@ class SideWorker:
                                    reading.get("judge", ""), idx)
 
         # lưu giá trị đo ra Excel (kèm cột SN) — xếp hàng, nền.
-        self._enqueue_excel(sn, reading)
+        self._enqueue_excel(sn, head_type, reading)
 
         # bắt tay 'done' về PLC
         self._handshake_done(trig, done)
@@ -411,17 +412,20 @@ class SideWorker:
     # ------------------------------------------------------------------ #
     #  Lưu giá trị đo ra Excel (kèm cột SN) — luồng nền                   #
     # ------------------------------------------------------------------ #
-    def _enqueue_excel(self, sn, reading):
+    def _enqueue_excel(self, sn, head_type, reading):
         """Xếp 1 dòng (SN + giá trị đo) vào hàng đợi ghi Excel ở luồng nền.
 
-        Bỏ qua im lặng nếu tắt tính năng. Hàng đợi đầy -> bỏ + ghi nhật ký,
-        KHÔNG chặn dây chuyền. Chỉ truyền dữ liệu cần thiết (đã chốt) sang nền.
+        Mỗi loại đầu (4X/8X/16X) lưu vào THƯ MỤC RIÊNG đã chọn; loại đầu chưa
+        chọn thư mục -> BỎ QUA. Bỏ qua im lặng nếu tắt tính năng. Hàng đợi đầy
+        -> bỏ + ghi nhật ký, KHÔNG chặn dây chuyền.
         """
         excel = getattr(self.cfg, "excel", None)
         if not excel or not excel.enabled:
             return
-        out_path = excel_export.output_path(
-            excel_export.resolve_output_dir(self.cfg), reading.get("file", ""))
+        out_dir = (head_excel_dir(excel, head_type) or "").strip()
+        if not out_dir:                      # loại đầu này chưa chọn thư mục
+            return
+        out_path = excel_export.output_path(out_dir, reading.get("file", ""))
         snapshot = {
             "time": reading.get("time", ""),
             "judge": reading.get("judge", ""),
